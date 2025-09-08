@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chatbot Assistant</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .chat-container {
+      width: 400px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    #chat-box {
+      flex: 1;
+      max-height: 500px;
+      overflow-y: auto;
+      padding: 10px;
+      background: #fafafa;
+    }
+
+    .bot-message {
+      background: #e0e0e0;
+      padding: 8px 12px;
+      margin: 5px;
+      border-radius: 12px;
+      text-align: left;
+      max-width: 80%;
+    }
+
+    .user-message {
+      background: #4caf50;
+      color: white;
+      padding: 8px 12px;
+      margin: 5px;
+      border-radius: 12px;
+      text-align: right;
+      margin-left: auto;
+      max-width: 80%;
+    }
+
+    .input-container {
+      display: flex;
+      border-top: 1px solid #ccc;
+    }
+
+    #user-input {
+      flex: 1;
+      border: none;
+      padding: 10px;
+      font-size: 16px;
+    }
+
+    #send-btn {
+      border: none;
+      background: #4caf50;
+      color: white;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #send-btn:hover {
+      background: #45a049;
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div id="chat-box"></div>
+    <div class="input-container">
+      <input id="user-input" type="text" placeholder="Type your message..." />
+      <button id="send-btn">Send</button>
+    </div>
+  </div>
+
+  <script>
+    // Add message to chat box
+    function addMessage(text, sender) {
+      const chatBox = document.getElementById("chat-box");
+      const message = document.createElement("div");
+      message.className = sender === "bot" ? "bot-message" : "user-message";
+      message.innerText = text;
+      chatBox.appendChild(message);
+      chatBox.scrollTop = chatBox.scrollHeight; // auto-scroll
+    }
+
+    // Send message to backend
+    async function sendMessage() {
+      const input = document.getElementById("user-input");
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Show user’s message
+      addMessage(text, "user");
+
+      // Clear input
+      input.value = "";
+
+      try {
+        const res = await fetch("https://chatbot-mvp-python.onrender.com/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text })
+        });
+
+        const data = await res.json();
+
+        if (data.reply) {
+          addMessage(data.reply, "bot");
+        } else if (data.error) {
+          addMessage("❌ Error: " + data.error, "bot");
+        } else {
+          addMessage("❌ No response from server.", "bot");
+        }
+      } catch (err) {
+        addMessage("⚠️ Could not connect to the server.", "bot");
+      }
+    }
+
+    // Send message on button click
+    document.getElementById("send-btn").addEventListener("click", sendMessage);
+
+    // Send message on Enter key
+    document.getElementById("user-input").addEventListener("keypress", function (e) {
+      if (e.key === "Enter") {
+        sendMessage();
+      }
+    });
+
+    // 👋 Intro message on load
+    window.addEventListener("load", () => {
+      const BUSINESS_NAME = "BigDargs’s Salon"; // <-- change per business
+      const BOT_NAME = "Kai";            // <-- your bot persona
+      addMessage(
+        `👋 Hello, I’m ${BOT_NAME}, ${BUSINESS_NAME}’s virtual assistant. I can help with bookings, opening hours, or services. How can I assist you today?`,
+        "bot"
+      );
+    });
+  </script>
+</body>
+</html>

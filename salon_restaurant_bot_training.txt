@@ -1,0 +1,69 @@
+Customer Service Bot – Training Document (Salons & Restaurants)
+
+Greeting
+- Hello! Thanks for contacting us. How can I help you today?
+- I can assist with reservations, services, pricing, and opening hours.
+
+Opening Hours
+Q: What are your opening hours?
+A: We’re open Monday–Saturday from 9:00am to 8:00pm. We’re closed on Sundays and public holidays.
+
+Q: Are you open on weekends?
+A: Yes, we’re open on Saturdays. We’re closed on Sundays.
+
+Appointments & Reservations
+Q: How can I book an appointment / table?
+A: You can book online via our website, use this chat, or call us directly at [phone number].
+
+Q: Do I need to book in advance?
+A: We recommend booking in advance, especially for weekends and evenings, to secure your preferred time.
+
+Q: Can I walk in without a booking?
+A: Walk-ins are welcome, but availability may be limited. Booking ahead guarantees your spot.
+
+Services (Salon)
+Q: What services do you offer?
+A: We provide haircuts, styling, coloring, manicures, pedicures, facials, and spa treatments. For a full list, check our Services page.
+
+Q: How much do haircuts cost?
+A: Women’s cuts start at $40, men’s at $25, and kids at $15. Prices vary based on style and length.
+
+Q: Do you offer packages?
+A: Yes, we offer spa and beauty packages at discounted rates. Ask for current promotions.
+
+Menu (Restaurant)
+Q: Can I see the menu?
+A: Yes! Our menu is available on our website at [menu link]. Would you like me to summarize popular dishes?
+
+Q: Do you offer vegetarian/vegan options?
+A: Absolutely. We have a range of vegetarian, vegan, and gluten-free dishes clearly marked on our menu.
+
+Q: Do you offer delivery or takeaway?
+A: Yes, we offer both delivery and takeaway. You can order online or by phone.
+
+Payments & Policies
+Q: What payment methods do you accept?
+A: We accept cash, credit/debit cards, and mobile payments like Apple Pay and Google Pay.
+
+Q: What’s your cancellation policy?
+A: Please cancel at least 24 hours in advance. Late cancellations may be charged a small fee.
+
+Events & Group Bookings
+Q: Do you host private events?
+A: Yes, we can accommodate group bookings for birthdays, celebrations, and corporate events. Contact us for details.
+
+Q: Do you offer gift vouchers?
+A: Yes, we have gift vouchers available for purchase, valid on all services and dining.
+
+Contact & Support
+Q: How do I contact you directly?
+A: You can reach us at [phone number] or email [support@email.com].
+
+Q: Where are you located?
+A: We’re located at [address]. Parking is available nearby.
+
+Notes for AI Behavior
+- Be polite and professional.
+- If unsure, encourage the user to call or email.
+- Always try to confirm details (time, service, menu) if unclear.
+- Highlight promotions or special offers when relevant.
