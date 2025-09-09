@@ -13,19 +13,10 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Hel
 .avatar img{width:100%;height:100%;object-fit:cover;}
 .status{font-size:12px;color:#28a745;display:flex;align-items:center;gap:4px;}
 #chat-box{flex:1;overflow-y:auto;padding:16px;}
-.day-separator{text-align:center;font-size:12px;color:#888;margin:12px 0;position:relative;}
-.day-separator:before{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px solid #ddd;z-index:-1;}
-.day-separator span{background:#fff;padding:0 8px;}
 .row{margin:10px 0;clear:both;}
 .bubble{padding:10px 14px;border-radius:16px;max-width:70%;display:inline-block;position:relative;font-size:15px;line-height:1.4;}
 .user .bubble{background:#2e9153;color:#fff;float:right;}
 .bot .bubble{background:#eef2f3;color:#111;float:left;}
-.status-ticks{font-size:11px;margin-top:2px;text-align:right;}
-.status-ticks .sent{color:#777;}
-.status-ticks .received{color:#555;}
-.status-ticks .read{color:#2e9153;font-weight:600;}
-.status-ticks .failed{color:#d9534f;font-weight:600;}
-.timestamp{font-size:11px;color:#777;margin-top:2px;}
 #suggestions{padding:8px;display:flex;flex-wrap:wrap;gap:8px;}
 #suggestions button{border:1px solid #ccc;background:#fff;border-radius:16px;padding:6px 12px;cursor:pointer;}
 .input{padding:12px;border-top:1px solid #eee;display:flex;gap:8px;}
@@ -34,19 +25,6 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Hel
 .side{width:240px;border-left:1px solid #eee;padding:12px;display:flex;flex-direction:column;}
 .pill{display:inline-block;padding:6px 10px;background:#eef2f3;border-radius:16px;margin:4px 0;cursor:pointer;}
 #reset-btn{margin-top:auto;background:#2e9153;color:#fff;border:none;padding:8px;border-radius:8px;cursor:pointer;}
-
-/* typing indicator */
-.typing{display:inline-flex;gap:4px;}
-.dot{width:6px;height:6px;border-radius:50%;background:#999;animation:blink 1.4s infinite both;}
-.dot:nth-child(2){animation-delay:.2s;}
-.dot:nth-child(3){animation-delay:.4s;}
-@keyframes blink{0%,80%,100%{opacity:.3;}40%{opacity:1;}}
-
-/* cancel button */
-#cancel-btn{display:none;margin:8px auto;padding:6px 12px;background:#d9534f;color:#fff;border:none;border-radius:8px;cursor:pointer;}
-
-/* rich cards */
-.card-block{background:#fff;border:1px solid #ddd;border-radius:12px;padding:12px;margin:8px 0;font-size:14px;}
 .escalate-btns{margin-top:8px;}
 .escalate-btns button{margin:4px 4px 0 0;padding:6px 12px;border:none;border-radius:8px;cursor:pointer;}
 .call-btn{background:#2e9153;color:#fff;}
@@ -65,7 +43,6 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Hel
       </div>
     </div>
     <div id="chat-box"></div>
-    <button id="cancel-btn">⏹ Cancel</button>
     <div id="suggestions"></div>
     <div class="input">
       <input id="user-input" type="text" placeholder="Type your message…" />
@@ -85,142 +62,84 @@ let SESSION_ID = localStorage.getItem("chat_session_id") || "web-" + Math.random
 localStorage.setItem("chat_session_id", SESSION_ID);
 
 const chatBox=document.getElementById("chat-box");
-const cancelBtn=document.getElementById("cancel-btn");
-let typingEl=null;
-let abortController=null;
-let lastMsgTime=null;
 
-function getTimeStamp(){return new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});}
-function maybeAddDaySeparator(){
-  const now=new Date();
-  if(!lastMsgTime || lastMsgTime.toDateString()!==now.toDateString()){
-    const sep=document.createElement("div");
-    sep.className="day-separator";
-    sep.innerHTML=`<span>${now.toDateString()}</span>`;
-    chatBox.appendChild(sep);
-  }
-  lastMsgTime=now;
-}
-
-function addMessage(text,sender,status="sent"){
-  if(typingEl){typingEl.remove();typingEl=null;}
-  maybeAddDaySeparator();
-  const now=new Date();
+function addMessage(text,sender){
   const row=document.createElement("div");row.className="row "+sender;
-  const bubble=document.createElement("div");bubble.className="bubble";bubble.innerHTML=renderRich(text);row.appendChild(bubble);
-
-  if(!lastMsgTime || (now-lastMsgTime)>(5*60*1000)){
-    const ts=document.createElement("div");ts.className="timestamp";ts.textContent=getTimeStamp();row.appendChild(ts);
-  }
-  if(sender==="user"){
-    const ticks=document.createElement("div");ticks.className="status-ticks";ticks.innerHTML=`<span class="sent">✓ Sent</span>`;
-    bubble.appendChild(ticks);
-    setTimeout(()=>{ticks.innerHTML=`<span class="received">✓✓ Received</span>`;},500);
-    setTimeout(()=>{ticks.innerHTML=`<span class="read">✓✓ Read</span>`;},1500);
-  }
-  chatBox.appendChild(row);chatBox.scrollTop=chatBox.scrollHeight;
-  saveHistory();lastMsgTime=now;
+  const bubble=document.createElement("div");bubble.className="bubble";bubble.innerHTML=text;
+  row.appendChild(bubble);chatBox.appendChild(row);
+  chatBox.scrollTop=chatBox.scrollHeight;
 }
-
-function markFailedLastUser(){
-  const ticks = chatBox.querySelector(".row.user:last-child .status-ticks");
-  if(ticks) ticks.innerHTML=`<span class="failed">❌ Failed</span>`;
-}
-
-function showTyping(duration=1500){
-  if(typingEl) return;
-  typingEl=document.createElement("div");typingEl.className="row bot";
-  typingEl.innerHTML=`<div class="bubble"><span class="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>`;
-  chatBox.appendChild(typingEl);chatBox.scrollTop=chatBox.scrollHeight;
-  cancelBtn.style.display="block";setTimeout(()=>hideTyping(),duration);
-}
-function hideTyping(){if(typingEl){typingEl.remove();typingEl=null;}cancelBtn.style.display="none";}
-
-function renderRich(text){
-  if(text.includes("Opening Hours")) return `<div class="card-block"><b>Opening Hours</b><br>Mon-Fri: 9am-6pm<br>Sat: 10am-4pm<br>Sun: Closed</div>`;
-  if(text.includes("menu")) return `<div class="card-block"><b>Menu Highlights</b><ul><li>Haircut – £30</li><li>Color – £60</li><li>Beard Trim – £15</li></ul></div>`;
-  if(text.includes("Booked:")) return `<div class="card-block"><b>Booking Confirmed</b><br>${text}</div>`;
-  return text;
-}
-
 function renderSuggestions(suggest=[]){
   const box=document.getElementById("suggestions");box.innerHTML="";
   suggest.forEach(txt=>{
     const b=document.createElement("button");b.textContent=txt;
-    b.onclick=()=>{document.getElementById("user-input").value=txt.toLowerCase().includes("cancel booking")?"cancel my booking":txt;sendMessage();};
+    b.onclick=()=>{document.getElementById("user-input").value=txt;sendMessage();};
     box.appendChild(b);
   });
 }
 function renderSidebar(pills=[]){
   const pillBox=document.getElementById("sidebar-pills");pillBox.innerHTML="";
-  pills.forEach(txt=>{
+  (pills||[]).forEach(txt=>{
     const pill=document.createElement("span");pill.className="pill";pill.textContent=txt;
-    pill.onclick=()=>{
-      const input=document.getElementById("user-input");
-      if(txt.toLowerCase().includes("opening hours")) input.value="What are your opening hours?";
-      else if(txt.toLowerCase().includes("make a booking")) input.value="I’d like to make a booking.";
-      else if(txt.toLowerCase().includes("contact")) input.value="How can I contact you?";
-      else if(txt.toLowerCase().includes("cancel")) input.value="cancel my booking";
-      sendMessage();
-    };
+    pill.onclick=()=>{document.getElementById("user-input").value=txt;sendMessage();};
     pillBox.appendChild(pill);
   });
 }
 
 async function sendMessage(){
   const input=document.getElementById("user-input");
-  const text=input.value.trim();if(!text)return;
-  addMessage(text,"user");input.value="";
-  abortController=new AbortController();
-  try{
-    const res=await fetch(API_URL+"?session_id="+SESSION_ID,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:text}),signal:abortController.signal});
-    const data=await res.json();
-    const delay=Math.min(4000,Math.max(800,(data.reply?data.reply.length:20)*50));
-    showTyping(delay);
-    setTimeout(()=>{
-      hideTyping();
-      if(data.reply)addMessage(data.reply,"bot");
-      renderSuggestions(data.suggest||[]);
-      if(data.sidebar) renderSidebar(data.sidebar);
+  const text=input.value.trim();
+  if(!text) return;
+  addMessage(text,"user");
 
-      if(data.escalate){ // backend flagged
-        const esc=document.createElement("div");
-        esc.className="escalate-btns";
-        esc.innerHTML=`<button class="call-btn" onclick="window.location.href='tel:08007779999'">📞 Call us</button>
-                       <button class="email-btn" onclick="window.location.href='mailto:kmd@kai.com'">📧 Email us</button>
-                       <button class="human-btn">👤 Human support</button>`;
-        chatBox.appendChild(esc);
-      }
-    },delay);
+  // ✅ force clear + keep focus
+  input.value = "";
+  input.focus();
+
+  try{
+    const res=await fetch(API_URL+"?session_id="+SESSION_ID,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({message:text})
+    });
+    const data=await res.json();
+    console.log("Backend response:",data);
+    if(data.reply) addMessage(data.reply,"bot");
+    if(data.suggest) renderSuggestions(data.suggest);
+    if(data.sidebar) renderSidebar(data.sidebar);
+    if(data.escalate){
+      const esc=document.createElement("div");
+      esc.className="escalate-btns";
+      esc.innerHTML=`<button class="call-btn" onclick="window.location.href='tel:08007779999'">📞 Call us</button>
+                     <button class="email-btn" onclick="window.location.href='mailto:kmd@kai.com'">📧 Email us</button>
+                     <button class="human-btn">👤 Human support</button>`;
+      chatBox.appendChild(esc);
+    }
   }catch(err){
-    hideTyping();addMessage("⚠️ Could not reach the server.","bot");markFailedLastUser();
+    console.error("Chat error:",err);
+    addMessage("⚠️ Could not reach the server.","bot");
   }
 }
 
 document.getElementById("send-btn").addEventListener("click",sendMessage);
 document.getElementById("user-input").addEventListener("keydown",e=>{if(e.key==="Enter")sendMessage();});
-cancelBtn.addEventListener("click",()=>{if(abortController){abortController.abort();}hideTyping();});
 
-// Intro
+// Intro message from backend
 window.addEventListener("load",()=>{
-  const h=localStorage.getItem("chat_history");if(h) chatBox.innerHTML=h;
-  if(!h){
-    fetch(API_URL+"?session_id="+SESSION_ID,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:""})})
+  fetch(API_URL+"?session_id="+SESSION_ID,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:""})})
     .then(r=>r.json()).then(data=>{
-      if(data.reply)addMessage(data.reply,"bot");
-      renderSuggestions(data.suggest||[]);
+      console.log("Intro response:",data);
+      if(data.reply) addMessage(data.reply,"bot");
+      if(data.suggest) renderSuggestions(data.suggest);
       if(data.sidebar) renderSidebar(data.sidebar);
     });
-  }
 });
 
-// Reset
+// Reset chat
 document.getElementById("reset-btn").addEventListener("click",()=>{
-  localStorage.removeItem("chat_session_id");localStorage.removeItem("chat_history");location.reload();
+  localStorage.removeItem("chat_session_id");
+  localStorage.removeItem("chat_history");
+  location.reload();
 });
 </script>
 </body>
 </html>
-
-
-
