@@ -5,41 +5,54 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Kai • Virtual Assistant</title>
 <style>
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f5f7fb;}
-.card{width:100%;max-width:860px;height:min(92vh,820px);background:#fff;border-radius:16px;display:flex;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.1);}
-.chat{flex:1;display:flex;flex-direction:column;}
-.header{padding:12px 16px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:8px;}
-.avatar{width:36px;height:36px;border-radius:50%;overflow:hidden;}
-.avatar img{width:100%;height:100%;object-fit:cover;}
-.status{font-size:12px;color:#28a745;display:flex;align-items:center;gap:4px;}
-#chat-box{flex:1;overflow-y:auto;padding:16px;}
-.row{margin:10px 0;clear:both;}
-.bubble{padding:10px 14px;border-radius:16px;max-width:70%;display:inline-block;position:relative;font-size:15px;line-height:1.4;}
-.user .bubble{background:#2e9153;color:#fff;float:right;}
-.bot .bubble{background:#eef2f3;color:#111;float:left;}
-#suggestions{padding:8px;display:flex;flex-wrap:wrap;gap:8px;}
-#suggestions button{border:1px solid #ccc;background:#fff;border-radius:16px;padding:6px 12px;cursor:pointer;}
-.input{padding:12px;border-top:1px solid #eee;display:flex;gap:8px;}
-#user-input{flex:1;padding:10px;border:1px solid #ccc;border-radius:12px;font-size:15px;}
-#send-btn{background:#2e9153;color:#fff;border:none;border-radius:12px;padding:10px 16px;cursor:pointer;}
-.side{width:240px;border-left:1px solid #eee;padding:12px;display:flex;flex-direction:column;}
-.pill{display:inline-block;padding:6px 10px;background:#eef2f3;border-radius:16px;margin:4px 0;cursor:pointer;}
-#reset-btn{margin-top:auto;background:#2e9153;color:#fff;border:none;padding:8px;border-radius:8px;cursor:pointer;}
-.escalate-btns{margin-top:8px;}
-.escalate-btns button{margin:4px 4px 0 0;padding:6px 12px;border:none;border-radius:8px;cursor:pointer;}
-.call-btn{background:#2e9153;color:#fff;}
-.email-btn{background:#007bff;color:#fff;}
-.human-btn{background:#ff9800;color:#fff;}
+  body {
+    margin:0; background:#f5f7fb; color:#111827;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display:flex; align-items:center; justify-content:center; min-height:100vh; padding:18px;
+  }
+  .card {
+    width:100%; max-width:860px; height:min(92vh,820px);
+    background:#fff; border-radius:16px; display:flex; overflow:hidden;
+    border:1px solid #e5e7eb; box-shadow:0 20px 40px rgba(0,0,0,.08);
+  }
+  .chat { flex:1; display:flex; flex-direction:column; }
+  .header { display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid #e5e7eb; }
+  .avatar { width:36px; height:36px; border-radius:50%; overflow:hidden; background:#2e9153; display:grid; place-items:center; color:#fff; font-weight:600; }
+  .title { font-weight:700; }
+  .subtitle { font-size:12px; color:#6b7280; }
+  .status { font-size:12px; color:green; }
+  #chat-box { flex:1; overflow:auto; padding:18px; background:#fafbfc; }
+  .row { display:flex; gap:10px; margin:12px 0; align-items:flex-end; }
+  .row.bot { justify-content:flex-start; }
+  .row.user { justify-content:flex-end; }
+  .bubble { max-width:70%; padding:12px 14px; border-radius:18px; line-height:1.35; font-size:15px; }
+  .bot .bubble { background:#eef2f3; color:#111827; border-top-left-radius:10px; }
+  .user .bubble { background:#2e9153; color:#fff; border-top-right-radius:10px; }
+  .timestamp { text-align:center; font-size:12px; color:#9ca3af; margin:10px 0; }
+  #suggestions, #sidebar { display:flex; flex-wrap:wrap; gap:8px; padding:8px 18px; }
+  #suggestions button, #sidebar button {
+    background:#fff; border:1px solid #e5e7eb; padding:6px 12px; border-radius:999px; cursor:pointer;
+    font-size:13px; box-shadow:0 2px 4px rgba(0,0,0,.05);
+  }
+  .input { padding:12px; display:flex; gap:10px; border-top:1px solid #e5e7eb; background:#fff; }
+  #user-input { flex:1; padding:12px 14px; border:1px solid #d1d5db; border-radius:12px; font-size:15px; }
+  #send-btn, #reset-btn { padding:12px 18px; border:none; border-radius:12px; cursor:pointer; font-weight:600; }
+  #send-btn { background:#2e9153; color:#fff; }
+  #reset-btn { background:#374151; color:#fff; margin-left:8px; }
+  .typing { display:inline-flex; gap:4px; }
+  .dot { width:6px; height:6px; border-radius:50%; background:#9aa3af; animation:blink 1.2s infinite ease-in-out; }
+  .dot:nth-child(2){ animation-delay:.2s } .dot:nth-child(3){ animation-delay:.4s }
+  @keyframes blink { 0%,80%,100%{opacity:.25} 40%{opacity:1} }
 </style>
 </head>
 <body>
 <div class="card">
   <div class="chat">
     <div class="header">
-      <div class="avatar"><img src="https://i.pravatar.cc/100?u=kai" alt="Kai"></div>
+      <div class="avatar">K</div>
       <div>
         <div class="title">Kai • Virtual Assistant</div>
-        <div class="status">🟢 Online now</div>
+        <div class="subtitle">Glyns’s Salon — <span class="status">Online now</span></div>
       </div>
     </div>
     <div id="chat-box"></div>
@@ -47,99 +60,143 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Hel
     <div class="input">
       <input id="user-input" type="text" placeholder="Type your message…" />
       <button id="send-btn">Send</button>
+      <button id="reset-btn">Start New Chat</button>
     </div>
   </div>
-  <aside class="side">
+  <aside style="width:220px; border-left:1px solid #e5e7eb; padding:18px;">
     <h4>Need something quick?</h4>
-    <div id="sidebar-pills"></div>
-    <button id="reset-btn">🔄 Start New Chat</button>
+    <div id="sidebar"></div>
   </aside>
 </div>
 
 <script>
 const API_URL = "https://chatbot-mvp-python.onrender.com/chat";
-let SESSION_ID = localStorage.getItem("chat_session_id") || "web-" + Math.random().toString(36).slice(2,10);
-localStorage.setItem("chat_session_id", SESSION_ID);
-
 const chatBox=document.getElementById("chat-box");
+let typingEl=null;
+let lastMsgTime=0;
 
-function addMessage(text,sender){
-  const row=document.createElement("div");row.className="row "+sender;
-  const bubble=document.createElement("div");bubble.className="bubble";bubble.innerHTML=text;
-  row.appendChild(bubble);chatBox.appendChild(row);
+// --- Session handling ---
+function newSession(){
+  const id="sess_"+Math.random().toString(36).slice(2);
+  localStorage.setItem("chat_session_id", id);
+  localStorage.removeItem("chat_history");
+  return id;
+}
+let SESSION_ID=localStorage.getItem("chat_session_id")||newSession();
+
+// --- History persistence ---
+function saveHistory(text,sender){
+  let history=JSON.parse(localStorage.getItem("chat_history")||"[]");
+  history.push({text,sender,ts:Date.now()});
+  localStorage.setItem("chat_history",JSON.stringify(history));
+}
+function loadHistory(){
+  let history=JSON.parse(localStorage.getItem("chat_history")||"[]");
+  history.forEach(msg=>{
+    maybeTimestamp(msg.ts);
+    addMessage(msg.text,msg.sender,false);
+  });
+}
+
+// --- UI helpers ---
+function maybeTimestamp(ts){
+  if(ts-lastMsgTime>5*60*1000){ // gap >5min
+    const t=new Date(ts).toLocaleString();
+    const el=document.createElement("div");
+    el.className="timestamp"; el.textContent=t;
+    chatBox.appendChild(el);
+  }
+  lastMsgTime=ts;
+}
+function addMessage(text,sender,save=true){
+  const row=document.createElement("div");
+  row.className="row "+sender;
+  const bubble=document.createElement("div");
+  bubble.className="bubble"; bubble.innerHTML=text;
+  row.appendChild(bubble);
+  chatBox.appendChild(row);
+  chatBox.scrollTop=chatBox.scrollHeight;
+  if(save) saveHistory(text,sender);
+}
+function showTyping(){
+  if(typingEl) return;
+  typingEl=document.createElement("div");
+  typingEl.className="row bot";
+  typingEl.innerHTML=`<div class="bubble"><span class="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>`;
+  chatBox.appendChild(typingEl);
   chatBox.scrollTop=chatBox.scrollHeight;
 }
+function hideTyping(){ if(typingEl){typingEl.remove(); typingEl=null;} }
 function renderSuggestions(suggest=[]){
-  const box=document.getElementById("suggestions");box.innerHTML="";
+  const box=document.getElementById("suggestions");
+  box.innerHTML="";
   suggest.forEach(txt=>{
-    const b=document.createElement("button");b.textContent=txt;
-    b.onclick=()=>{document.getElementById("user-input").value=txt;sendMessage();};
+    const b=document.createElement("button"); b.textContent=txt;
+    b.onclick=()=>{document.getElementById("user-input").value=txt; sendMessage();};
     box.appendChild(b);
   });
 }
-function renderSidebar(pills=[]){
-  const pillBox=document.getElementById("sidebar-pills");pillBox.innerHTML="";
-  (pills||[]).forEach(txt=>{
-    const pill=document.createElement("span");pill.className="pill";pill.textContent=txt;
-    pill.onclick=()=>{document.getElementById("user-input").value=txt;sendMessage();};
-    pillBox.appendChild(pill);
+function renderSidebar(items=[]){
+  const side=document.getElementById("sidebar");
+  side.innerHTML="";
+  items.forEach(txt=>{
+    const b=document.createElement("button"); b.textContent=txt;
+    b.onclick=()=>{document.getElementById("user-input").value=txt; sendMessage();};
+    side.appendChild(b);
   });
 }
 
+// --- Chat logic ---
 async function sendMessage(){
   const input=document.getElementById("user-input");
   const text=input.value.trim();
   if(!text) return;
+  maybeTimestamp(Date.now());
   addMessage(text,"user");
-
-  // ✅ force clear + keep focus
-  input.value = "";
-  input.focus();
-
+  input.value=""; input.focus();
+  showTyping();
   try{
     const res=await fetch(API_URL+"?session_id="+SESSION_ID,{
-      method:"POST",headers:{"Content-Type":"application/json"},
+      method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({message:text})
     });
     const data=await res.json();
-    console.log("Backend response:",data);
+    hideTyping();
+    maybeTimestamp(Date.now());
     if(data.reply) addMessage(data.reply,"bot");
     if(data.suggest) renderSuggestions(data.suggest);
     if(data.sidebar) renderSidebar(data.sidebar);
     if(data.escalate){
       const esc=document.createElement("div");
-      esc.className="escalate-btns";
-      esc.innerHTML=`<button class="call-btn" onclick="window.location.href='tel:08007779999'">📞 Call us</button>
-                     <button class="email-btn" onclick="window.location.href='mailto:kmd@kai.com'">📧 Email us</button>
-                     <button class="human-btn">👤 Human support</button>`;
+      esc.className="row bot";
+      esc.innerHTML=`<div class="bubble">📞 Call us: <a href="tel:08007779999">0800 777 9999</a><br>
+                     📧 Email: <a href="mailto:kmd@kai.com">kmd@kai.com</a><br>
+                     👤 Human support available</div>`;
       chatBox.appendChild(esc);
     }
   }catch(err){
-    console.error("Chat error:",err);
+    hideTyping();
     addMessage("⚠️ Could not reach the server.","bot");
   }
 }
 
+// --- Events ---
 document.getElementById("send-btn").addEventListener("click",sendMessage);
-document.getElementById("user-input").addEventListener("keydown",e=>{if(e.key==="Enter")sendMessage();});
+document.getElementById("user-input").addEventListener("keydown",e=>{if(e.key==="Enter") sendMessage();});
+document.getElementById("reset-btn").addEventListener("click",()=>{SESSION_ID=newSession(); location.reload();});
 
-// Intro message from backend
-window.addEventListener("load",()=>{
-  fetch(API_URL+"?session_id="+SESSION_ID,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:""})})
-    .then(r=>r.json()).then(data=>{
-      console.log("Intro response:",data);
-      if(data.reply) addMessage(data.reply,"bot");
-      if(data.suggest) renderSuggestions(data.suggest);
-      if(data.sidebar) renderSidebar(data.sidebar);
-    });
-});
-
-// Reset chat
-document.getElementById("reset-btn").addEventListener("click",()=>{
-  localStorage.removeItem("chat_session_id");
-  localStorage.removeItem("chat_history");
-  location.reload();
-});
+// --- Init ---
+loadHistory();
+if(!localStorage.getItem("chat_history")){
+  fetch(API_URL+"?session_id="+SESSION_ID,{
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({message:""})
+  }).then(r=>r.json()).then(data=>{
+    if(data.reply) addMessage(data.reply,"bot");
+    if(data.suggest) renderSuggestions(data.suggest);
+    if(data.sidebar) renderSidebar(data.sidebar);
+  });
+}
 </script>
 </body>
 </html>
