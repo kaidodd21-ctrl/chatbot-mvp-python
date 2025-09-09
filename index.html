@@ -5,259 +5,188 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Kai • Virtual Assistant</title>
 <style>
-  :root{
-    /* Light */
-    --brand:#2e9153;
-    --brand-dark:#267945;
-    --page:#f5f7fb;
-    --card:#ffffff;
-    --muted:#6b7280;
-    --border:#eef0f4;
-    --bot:#eef2f3;
-    --user:#2e9153;
-    --text:#111827;
-    --shadow1:0 20px 50px rgba(24,39,75,.12), 0 10px 20px rgba(24,39,75,.08);
-    --shadow2:0 6px 16px rgba(24,39,75,.08);
-    --chip:#ffffff;
-    --chip-border:#e5e7eb;
-  }
-  :root.dark{
-    /* Dark */
-    --brand:#36a768;
-    --brand-dark:#2b8e58;
-    --page:#0f1216;
-    --card:#151922;
-    --muted:#a9b1bd;
-    --border:#222734;
-    --bot:#1b2030;
-    --user:#2b8e58;
-    --text:#e6e9ee;
-    --shadow1:none;
-    --shadow2:none;
-    --chip:#1a1f2c;
-    --chip-border:#2a3142;
-  }
+body{margin:0;font-family:Arial,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f5f7fb;}
+.card{width:100%;max-width:860px;height:min(92vh,820px);background:#fff;border-radius:16px;display:flex;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.1);}
+.chat{flex:1;display:flex;flex-direction:column;}
+.header{padding:12px 16px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:8px;}
+.avatar{width:36px;height:36px;border-radius:50%;background:#2e9153;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;}
+.title{font-weight:bold;}
+.subtitle{font-size:12px;color:#777;}
+#chat-box{flex:1;overflow-y:auto;padding:16px;}
+.row{margin:10px 0;clear:both;}
+.bubble{padding:10px 14px;border-radius:16px;max-width:70%;display:inline-block;}
+.user .bubble{background:#2e9153;color:#fff;float:right;}
+.bot .bubble{background:#eef2f3;color:#111;float:left;}
+.timestamp{font-size:11px;color:#777;clear:both;}
+#suggestions{padding:8px;display:flex;flex-wrap:wrap;gap:8px;}
+#suggestions button{border:1px solid #ccc;background:#fff;border-radius:16px;padding:6px 12px;cursor:pointer;}
+.input{padding:12px;border-top:1px solid #eee;display:flex;gap:8px;}
+#user-input{flex:1;padding:10px;border:1px solid #ccc;border-radius:12px;}
+#send-btn{background:#2e9153;color:#fff;border:none;border-radius:12px;padding:10px 16px;cursor:pointer;}
+.side{width:240px;border-left:1px solid #eee;padding:12px;display:flex;flex-direction:column;}
+.pill{display:inline-block;padding:6px 10px;background:#eef2f3;border-radius:16px;margin:2px 0;}
+#reset-btn{margin-top:auto;background:#2e9153;color:#fff;border:none;padding:8px;border-radius:8px;cursor:pointer;}
 
-  *{box-sizing:border-box}
-  body{
-    margin:0; background:var(--page); color:var(--text);
-    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    display:flex; align-items:center; justify-content:center; min-height:100vh; padding:18px;
-  }
-  .card{
-    width:100%; max-width:860px; height:min(92vh,820px); background:var(--card); border-radius:16px;
-    box-shadow:var(--shadow1); display:flex; overflow:hidden; border:1px solid var(--border);
-  }
+/* typing indicator */
+.typing{display:inline-flex;gap:4px;}
+.dot{width:6px;height:6px;border-radius:50%;background:#999;animation:blink 1.4s infinite both;}
+.dot:nth-child(2){animation-delay:.2s;}
+.dot:nth-child(3){animation-delay:.4s;}
+@keyframes blink{0%,80%,100%{opacity:.3;}40%{opacity:1;}}
 
-  /* Left panel (chat) */
-  .chat{ flex:1; display:flex; flex-direction:column; height:100%; }
-  .header{
-    display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid var(--border);
-    background:linear-gradient(180deg, rgba(255,255,255,.04) 0%, transparent 100%);
-  }
-  .avatar{
-    width:36px; height:36px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:600;
-    background:var(--brand);
-    box-shadow:0 4px 10px rgba(0,0,0,.08);
-  }
-  .title{font-weight:700}
-  .subtitle{font-size:12px; color:var(--muted)}
-  .spacer{flex:1}
-  .toggle{
-    display:inline-flex; align-items:center; gap:8px; padding:8px 10px; font-size:13px; cursor:pointer;
-    border:1px solid var(--border); border-radius:999px; background:transparent; color:var(--text);
-  }
-
-  #chat-box{ flex:1; overflow:auto; padding:18px; }
-  .row{display:flex; gap:10px; margin:12px 0; align-items:flex-end;}
-  .row.bot {justify-content:flex-start}
-  .row.user{justify-content:flex-end}
-
-  .bubble{
-    max-width:70%; padding:12px 14px; border-radius:18px; line-height:1.35; font-size:15px;
-    box-shadow:var(--shadow2);
-  }
-  .bot .bubble{ background:var(--bot); color:var(--text); border-top-left-radius:10px; }
-  .user .bubble{ background:var(--user); color:#fff; border-top-right-radius:10px; }
-
-  .mini-avatar{
-    width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-size:12px; color:#fff;
-    background:#1f2937;
-  }
-  .user .mini-avatar{ background:var(--brand-dark) }
-
-  /* quick replies */
-  #suggestions{ display:flex; flex-wrap:wrap; gap:8px; padding:8px 18px 0 18px; }
-  #suggestions button{
-    background:var(--chip); border:1px solid var(--chip-border); color:var(--text); padding:7px 12px; border-radius:999px; cursor:pointer;
-    box-shadow:0 2px 6px rgba(24,39,75,.06);
-  }
-
-  /* input bar */
-  .input{ padding:12px; display:flex; gap:10px; border-top:1px solid var(--border); background:var(--card); }
-  #user-input{
-    flex:1; padding:12px 14px; border:1px solid var(--chip-border); border-radius:12px; outline:none; font-size:15px;
-    background:transparent; color:var(--text);
-  }
-  #send-btn{
-    padding:12px 18px; background:var(--brand); color:#fff; border:none; border-radius:12px; cursor:pointer;
-    font-weight:600; box-shadow:0 8px 16px rgba(46,145,83,.25);
-  }
-  #send-btn:hover{ background:var(--brand-dark) }
-
-  /* typing indicator */
-  .typing{ display:inline-flex; gap:6px; align-items:center; }
-  .dot{ width:6px; height:6px; border-radius:50%; background:#9aa3af; animation:blink 1.2s infinite ease-in-out }
-  .dot:nth-child(2){ animation-delay:.2s } .dot:nth-child(3){ animation-delay:.4s }
-  @keyframes blink{ 0%,80%,100%{opacity:.25} 40%{opacity:1} }
-
-  /* Right panel (optional) */
-  .side{
-    width:280px; border-left:1px solid var(--border);
-    background:linear-gradient(180deg, rgba(255,255,255,.04) 0%, transparent 100%);
-    padding:18px; display:flex; flex-direction:column; gap:12px;
-  }
-  .side h4{ margin:0 0 6px 0 }
-  .pill{ display:inline-block; background:var(--bot); padding:6px 10px; border-radius:999px; font-size:12px; color:var(--text) }
-  .muted{ color:var(--muted); font-size:14px }
+/* cancel button */
+#cancel-btn{display:none;margin:8px auto;padding:6px 12px;background:#d9534f;color:#fff;border:none;border-radius:8px;cursor:pointer;}
 </style>
 </head>
 <body>
-  <div class="card">
-    <div class="chat">
-      <div class="header">
-        <div class="avatar">K</div>
-        <div>
-          <div class="title">Kai • Virtual Assistant</div>
-          <div class="subtitle">Glyns’s Salon — usually replies in seconds</div>
-        </div>
-        <div class="spacer"></div>
-        <button id="theme-toggle" class="toggle" aria-label="Toggle theme">🌞 Light</button>
-      </div>
-
-      <div id="chat-box"></div>
-      <div id="suggestions"></div>
-
-      <div class="input">
-        <input id="user-input" type="text" placeholder="Type your message…" />
-        <button id="send-btn">Send</button>
-      </div>
+<div class="card">
+  <div class="chat">
+    <div class="header">
+      <div class="avatar">K</div>
+      <div><div class="title">Kai • Virtual Assistant</div><div class="subtitle">Usually replies in seconds</div></div>
     </div>
-
-    <aside class="side">
-      <h4>Need something quick?</h4>
-      <span class="pill">Opening hours</span>
-      <span class="pill">Make a booking</span>
-      <span class="pill">Contact details</span>
-      <hr style="border:none;border-top:1px solid var(--border); margin:10px 0;">
-      <div class="muted">
-        Tip: You can type “book Friday 2pm haircut” and I’ll fill in anything missing.
-      </div>
-    </aside>
+    <div id="chat-box"></div>
+    <button id="cancel-btn">⏹ Cancel</button>
+    <div id="suggestions"></div>
+    <div class="input">
+      <input id="user-input" type="text" placeholder="Type your message…" />
+      <button id="send-btn">Send</button>
+    </div>
   </div>
+  <aside class="side">
+    <h4>Need something quick?</h4>
+    <span class="pill">Opening hours</span>
+    <span class="pill">Make a booking</span>
+    <span class="pill">Contact details</span>
+    <button id="reset-btn">🔄 Start New Chat</button>
+  </aside>
+</div>
 
 <script>
-  // 👉 Backend URL
-  const API_URL = "https://chatbot-mvp-python.onrender.com/chat";
+const API_URL = "https://chatbot-mvp-python.onrender.com/chat";
+let SESSION_ID = localStorage.getItem("chat_session_id") || "web-" + Math.random().toString(36).slice(2,10);
+localStorage.setItem("chat_session_id", SESSION_ID);
 
-  // THEME (default light, remember choice)
-  const root = document.documentElement;
-  const toggleBtn = document.getElementById("theme-toggle");
-  function setTheme(mode){
-    if(mode === "dark"){ root.classList.add("dark"); toggleBtn.textContent = "🌙 Dark"; }
-    else { root.classList.remove("dark"); toggleBtn.textContent = "🌞 Light"; }
-    localStorage.setItem("chat_theme", mode);
-  }
-  setTheme(localStorage.getItem("chat_theme") || "light");
-  toggleBtn.addEventListener("click", ()=>{
-    const isDark = root.classList.contains("dark");
-    setTheme(isDark ? "light" : "dark");
+// language detection
+const userLang = navigator.language || "en";
+const lang = userLang.startsWith("fr") ? "fr"
+           : userLang.startsWith("es") ? "es"
+           : userLang.startsWith("de") ? "de"
+           : userLang.startsWith("it") ? "it"
+           : "en";
+const translations = {
+  en:{call:"📞 Call us",email:"📧 Email us",leave:"📝 Leave your number"},
+  fr:{call:"📞 Appelez-nous",email:"📧 Envoyez-nous un email",leave:"📝 Laissez votre numéro"},
+  es:{call:"📞 Llámanos",email:"📧 Envíanos un correo",leave:"📝 Deja tu número"},
+  de:{call:"📞 Rufen Sie uns an",email:"📧 Schreiben Sie uns",leave:"📝 Hinterlassen Sie Ihre Nummer"},
+  it:{call:"📞 Chiamaci",email:"📧 Scrivici un'email",leave:"📝 Lascia il tuo numero"}
+};
+const t = translations[lang] || translations.en;
+
+// Chat helpers
+const chatBox=document.getElementById("chat-box");
+const cancelBtn=document.getElementById("cancel-btn");
+let typingEl=null;
+let abortController=null;
+
+function addMessage(text,sender){
+  if(typingEl){typingEl.remove();typingEl=null;}
+  const row=document.createElement("div");
+  row.className="row "+sender;
+  const bubble=document.createElement("div");
+  bubble.className="bubble";
+  bubble.textContent=text;
+  row.appendChild(bubble);
+  const ts=document.createElement("div");
+  ts.className="timestamp";
+  ts.textContent=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  row.appendChild(ts);
+  chatBox.appendChild(row);
+  chatBox.scrollTop=chatBox.scrollHeight;
+  saveHistory();
+}
+
+function showTyping(){
+  if(typingEl) return;
+  typingEl=document.createElement("div");
+  typingEl.className="row bot";
+  typingEl.innerHTML=`<div class="bubble"><span class="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>`;
+  chatBox.appendChild(typingEl);
+  chatBox.scrollTop=chatBox.scrollHeight;
+  cancelBtn.style.display="block";
+}
+function hideTyping(){
+  if(typingEl){typingEl.remove();typingEl=null;}
+  cancelBtn.style.display="none";
+}
+
+function saveHistory(){localStorage.setItem("chat_history", chatBox.innerHTML);}
+function loadHistory(){const h=localStorage.getItem("chat_history");if(h) chatBox.innerHTML=h;}
+
+function renderSuggestions(suggest=[]){
+  const box=document.getElementById("suggestions");box.innerHTML="";
+  suggest.forEach(txt=>{
+    const b=document.createElement("button");
+    b.textContent=txt;
+    b.onclick=()=>{document.getElementById("user-input").value=txt;sendMessage();};
+    box.appendChild(b);
   });
-
-  const chatBox = document.getElementById("chat-box");
-
-  function messageRow(sender, text, isTyping=false){
-    const row = document.createElement("div");
-    row.className = `row ${sender}`;
-    const avatar = document.createElement("div");
-    avatar.className = "mini-avatar";
-    avatar.textContent = sender === "bot" ? "K" : "ME";
-    const bubble = document.createElement("div");
-    bubble.className = "bubble";
-    bubble.innerHTML = isTyping
-      ? `<span class="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>`
-      : text;
-
-    if(sender === "bot"){ row.appendChild(avatar); row.appendChild(bubble); }
-    else{ row.appendChild(bubble); row.appendChild(avatar); }
-    return row;
+  if(suggest.includes("Call us")||suggest.includes("Email us")||suggest.includes("Leave your number")){
+    const callBtn=document.createElement("button");callBtn.textContent=t.call;callBtn.onclick=()=>window.location.href="tel:+44123456789";box.appendChild(callBtn);
+    const emailBtn=document.createElement("button");emailBtn.textContent=t.email;emailBtn.onclick=()=>window.location.href="mailto:info@example.com";box.appendChild(emailBtn);
+    const leaveBtn=document.createElement("button");leaveBtn.textContent=t.leave;leaveBtn.onclick=()=>alert("📨 Please provide your number and we’ll call back.");box.appendChild(leaveBtn);
   }
+}
 
-  function addMessage(text, sender){
-    const row = messageRow(sender, text);
-    chatBox.appendChild(row);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
+async function sendMessage(){
+  const input=document.getElementById("user-input");
+  const text=input.value.trim();if(!text)return;
+  addMessage(text,"user");input.value="";
+  showTyping();
 
-  let typingEl = null;
-  function showTyping(){
-    if(typingEl) return;
-    typingEl = messageRow("bot", "", true);
-    chatBox.appendChild(typingEl);
-    chatBox.scrollTop = chatBox.scrollHeight;
+  abortController=new AbortController();
+  try{
+    const res=await fetch(API_URL+"?session_id="+SESSION_ID,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Accept-Language":userLang},
+      body:JSON.stringify({message:text}),
+      signal:abortController.signal
+    });
+    const data=await res.json();hideTyping();
+    if(data.reply)addMessage(data.reply,"bot");
+    renderSuggestions(data.suggest||[]);
+  }catch(err){
+    hideTyping();
+    if(err.name==="AbortError"){addMessage("❌ Reply cancelled.","bot");}
+    else{addMessage("⚠️ Could not reach the server.","bot");}
   }
-  function hideTyping(){
-    if(typingEl){ typingEl.remove(); typingEl = null; }
-  }
+}
 
-  function renderSuggestions(suggest = []){
-    const box = document.getElementById("suggestions");
-    box.innerHTML = "";
-    (suggest || []).slice(0,4).forEach(txt=>{
-      const b = document.createElement("button");
-      b.textContent = txt;
-      b.onclick = ()=>{ document.getElementById("user-input").value = txt; sendMessage(); };
-      box.appendChild(b);
+document.getElementById("send-btn").addEventListener("click",sendMessage);
+document.getElementById("user-input").addEventListener("keydown",e=>{if(e.key==="Enter")sendMessage();});
+cancelBtn.addEventListener("click",()=>{if(abortController){abortController.abort();}hideTyping();});
+
+// Intro
+window.addEventListener("load",()=>{
+  loadHistory();
+  if(!localStorage.getItem("chat_history")){
+    fetch(API_URL+"?session_id="+SESSION_ID,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Accept-Language":userLang},
+      body:JSON.stringify({message:""})
+    }).then(r=>r.json()).then(data=>{
+      if(data.reply)addMessage(data.reply,"bot");
+      renderSuggestions(data.suggest||[]);
     });
   }
+});
 
-  async function sendMessage(){
-    const input = document.getElementById("user-input");
-    const text = input.value.trim();
-    if(!text) return;
-
-    addMessage(text, "user");
-    input.value = "";
-
-    showTyping();
-    try{
-      const res = await fetch(API_URL + "?session_id=web", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ message: text })
-      });
-      const data = await res.json();
-      hideTyping();
-      if(data.reply) addMessage(data.reply, "bot");
-      renderSuggestions(data.suggest || []);
-    }catch(e){
-      hideTyping();
-      addMessage("⚠️ Could not reach the server.", "bot");
-    }
-  }
-
-  document.getElementById("send-btn").addEventListener("click", sendMessage);
-  document.getElementById("user-input").addEventListener("keydown", e=>{
-    if(e.key === "Enter") sendMessage();
-  });
-
-  // Intro
-  window.addEventListener("load", ()=>{
-    const BUSINESS_NAME = "Glyns’s Salon"; // change per client later
-    const BOT_NAME = "Kai";
-    addMessage(`👋 Hello, I’m ${BOT_NAME}, ${BUSINESS_NAME}’s virtual assistant. I can help with bookings, opening hours, or services. How can I assist you today?`, "bot");
-    renderSuggestions(["Opening hours","Make a booking","Contact details"]);
-  });
+// Reset
+document.getElementById("reset-btn").addEventListener("click",()=>{
+  localStorage.removeItem("chat_session_id");
+  localStorage.removeItem("chat_history");
+  location.reload();
+});
 </script>
 </body>
 </html>
