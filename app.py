@@ -16,7 +16,7 @@ app = FastAPI()
 # Allow frontend (GitHub Pages) to connect
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten to your frontend domain in prod
+    allow_origins=["*"],  # TODO: restrict to your frontend domain later
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -27,6 +27,21 @@ SESSIONS = defaultdict(lambda: {"slots": {}, "history": [], "booking": None})
 SESSION_TTL_SECONDS = 60 * 30  # 30 mins
 LAST_SEEN = {}
 def now(): return int(time.time())
+
+# Sidebar defaults
+DEFAULT_SIDEBAR = ["Opening hours", "Make a booking", "Contact details"]
+
+def get_sidebar(state):
+    """Return sidebar options depending on context"""
+    if state.get("booking"):
+        return ["Cancel booking", "Contact details"]
+    return DEFAULT_SIDEBAR
+
+# Escalation rule
+def should_escalate(reply: str, confidence: float) -> bool:
+    low_conf = confidence < 0.7
+    unsure = any(phrase in reply.lower() for phrase in ["not sure", "don’t know", "cannot help"])
+    return low_conf or unsure
 
 # Load business knowledge (FAQ/training file)
 with open("salon_restaurant_bot_training.txt", "r", encoding="utf-8") as f:
@@ -45,21 +60,14 @@ Booking flow (slot filling):
 - If a slot is missing, ASK for it (one thing at a time). When all present, BOOK.
 - If time is unavailable, propose the nearest 3 alternatives.
 - Always confirm the summary before booking.
-- Always include: "ℹ️ Cancellation policy: please cancel at least 24h in advance to avoid charges."
-
-Booking cancellation flow:
-- If the user asks to cancel:
-  - If booking exists, cancel & confirm.
-  - If not, reply "I couldn’t find an active booking to cancel."
-  - Always remind cancellation policy.
 
 Style:
-- Warm, professional, specific. Offer 2–3 smart follow-ups (“quick replies”).
+- Warm, professional, specific. No filler. Use bullet points sparingly. Offer 2–3 smart follow-ups (“quick replies”).
 
 Output contract:
-Return ONLY a JSON object with:
+Return ONLY a compact JSON object with fields:
 {
-  "action": "REPLY|ASK|CHECK_AVAILABILITY|BOOK|CANCEL_BOOKING|ESCALATE",
+  "action": "REPLY|ASK|CHECK_AVAILABILITY|BOOK|ESCALATE|CANCEL_BOOKING",
   "reply": "message for the user",
   "slots": { "service": "", "party_size": "", "date": "", "time": "", "name": "", "contact": "" },
   "suggest": ["quick reply 1", "quick reply 2", "quick reply 3"],
@@ -67,10 +75,10 @@ Return ONLY a JSON object with:
 }
 """
 
-# Helpers
+# --- Helpers ---
 def clean_and_parse_json(s: str) -> dict:
     m = re.search(r"\{.*\}", s, re.S)
-    if not m: 
+    if not m:
         return {"action":"REPLY","reply":"Sorry, I couldn’t parse that.","slots":{},"suggest":[],"confidence":0.0}
     try:
         return json.loads(m.group(0))
@@ -83,36 +91,45 @@ def merge_slots(old: dict, new: dict) -> dict:
         if v: out[k]=v
     return out
 
-# Routes
+# --- Routes ---
+
+# ✅ Health route
 @app.get("/")
 def root():
     return {"ok": True, "service": "chatbot", "status": "alive"}
 
+# ✅ Main chat route
 @app.post("/chat")
 async def chat(request: Request, session_id: str = Query(default="web")):
     payload = await request.json()
     user_msg = (payload.get("message") or "").strip()
-    if not user_msg:
-        return JSONResponse({
-            "reply":"👋 Hello, I’m Kai, Glyns’s Salon’s virtual assistant. How can I help today?",
-            "suggest":["Opening hours","Make a booking","Contact details"],
-            "sidebar":["Opening hours","Make a booking","Contact details"]
-        })
 
-    # session cleanup
+    # Session cleanup
     LAST_SEEN[session_id] = now()
     for sid,t in list(LAST_SEEN.items()):
         if now() - t > SESSION_TTL_SECONDS:
             SESSIONS.pop(sid, None); LAST_SEEN.pop(sid, None)
 
     state = SESSIONS[session_id]
+
+    # Intro case (user opens page with no message)
+    if not user_msg:
+        reply = "👋 Hello, I’m Kai, Glyns’s Salon’s virtual assistant. How can I help today?"
+        return JSONResponse({
+            "reply": reply,
+            "suggest": ["Opening hours", "Make a booking", "Contact details"],
+            "sidebar": get_sidebar(state),
+            "confidence": 1.0,
+            "escalate": False
+        })
+
+    # Add message to history
     state["history"].append({"role":"user","content":user_msg})
 
     messages = [
         {"role":"system","content": SYSTEM_PROMPT},
         {"role":"system","content": f"KNOWLEDGE:\n{KNOWLEDGE}"},
-        {"role":"system","content": f"CURRENT SLOTS: {json.dumps(state.get('slots',{}))}"},
-        {"role":"system","content": f"CURRENT BOOKING: {json.dumps(state.get('booking', None))}"},
+        {"role":"system","content": f"CURRENT SLOTS (if any): {json.dumps(state.get('slots',{}))}"},
     ] + state["history"][-6:]
 
     resp = client.chat.completions.create(
@@ -122,49 +139,86 @@ async def chat(request: Request, session_id: str = Query(default="web")):
     )
     action_obj = clean_and_parse_json(resp.choices[0].message.content)
 
-    # merge slot memory
+    # Merge slots
     state["slots"] = merge_slots(state.get("slots", {}), action_obj.get("slots", {}))
     action = (action_obj.get("action") or "REPLY").upper()
-    sidebar = ["Opening hours","Make a booking","Contact details"]
+    reply = action_obj.get("reply") or "Happy to help."
+    suggestions = action_obj.get("suggest") or []
+    confidence = action_obj.get("confidence") or 0.5
 
+    # --- Branch logic ---
     if action == "CHECK_AVAILABILITY":
-        reply = action_obj.get("reply") or "Let me check availability…"
-        suggestions = action_obj.get("suggest") or ["Today","Tomorrow","This Saturday"]
-        return JSONResponse({"reply": reply, "suggest": suggestions, "sidebar": sidebar})
+        return JSONResponse({
+            "reply": reply,
+            "suggest": suggestions or ["Today","Tomorrow","This Saturday"],
+            "sidebar": get_sidebar(state),
+            "confidence": confidence,
+            "escalate": should_escalate(reply, confidence)
+        })
 
     if action == "BOOK":
         slots = state["slots"]
         reqd = ["service","date","time","name","contact"]
         if all(slots.get(k) for k in reqd):
             summary = f"{slots['service']} on {slots['date']} at {slots['time']} for {slots['name']}."
-            reply = f"✅ Booked: {summary}\n\nℹ️ Cancellation policy: please cancel at least 24h in advance to avoid charges."
-            state["booking"] = slots.copy()
+            reply = f"✅ Booked: {summary} A confirmation has been sent. Policy: Cancellations must be made 24h in advance."
+            state["booking"] = summary  # Save booking
             state["slots"] = {}
-            sidebar = ["Cancel booking","Contact details"]
-            return JSONResponse({"reply": reply, "suggest": ["Add to calendar","Cancel booking","Anything else?"], "sidebar": sidebar})
+            return JSONResponse({
+                "reply": reply,
+                "suggest": ["Add to calendar","Another booking","Cancel booking"],
+                "sidebar": get_sidebar(state),
+                "confidence": confidence,
+                "escalate": False
+            })
         else:
             missing = [k for k in reqd if not slots.get(k)]
             reply = f"I can book that. I still need: {', '.join(missing)}."
-            return JSONResponse({"reply": reply, "suggest": ["Provide details","Pick a time","Cancel"], "sidebar": sidebar})
+            return JSONResponse({
+                "reply": reply,
+                "suggest": ["Provide details","Pick a time","Cancel"],
+                "sidebar": get_sidebar(state),
+                "confidence": confidence,
+                "escalate": False
+            })
 
     if action == "CANCEL_BOOKING":
         if state.get("booking"):
-            cancelled = state["booking"]
-            reply = f"❌ Cancelled your booking: {cancelled['service']} on {cancelled['date']} at {cancelled['time']}.\n\nℹ️ Cancellations less than 24h may still incur charges."
+            reply = f"❌ Your booking ({state['booking']}) has been cancelled."
             state["booking"] = None
-            return JSONResponse({"reply": reply, "suggest": ["Make a new booking","Contact staff","Anything else?"], "sidebar": ["Opening hours","Make a booking","Contact details"]})
         else:
-            reply = "I couldn’t find an active booking to cancel."
-            return JSONResponse({"reply": reply, "suggest": ["Make a booking","Contact staff"], "sidebar": sidebar})
+            reply = "You don’t have any active booking to cancel."
+        return JSONResponse({
+            "reply": reply,
+            "suggest": ["Make a new booking","Contact details"],
+            "sidebar": get_sidebar(state),
+            "confidence": confidence,
+            "escalate": False
+        })
 
     if action == "ESCALATE":
-        reply = action_obj.get("reply") or "I can connect you to a human if you like."
-        return JSONResponse({"reply": reply, "suggest": ["📞 Call us","📧 Email us","📝 Leave your number"], "sidebar": sidebar})
+        return JSONResponse({
+            "reply": reply or "I can connect you to a human if you like.",
+            "suggest": ["Call us","Leave your number","Email us"],
+            "sidebar": get_sidebar(state),
+            "confidence": confidence,
+            "escalate": True
+        })
 
     if action == "ASK":
-        reply = action_obj.get("reply") or "Could you share a bit more?"
-        return JSONResponse({"reply": reply, "suggest": action_obj.get("suggest") or [], "sidebar": sidebar})
+        return JSONResponse({
+            "reply": reply or "Could you share a bit more?",
+            "suggest": suggestions,
+            "sidebar": get_sidebar(state),
+            "confidence": confidence,
+            "escalate": should_escalate(reply, confidence)
+        })
 
-    # Default reply
-    reply = action_obj.get("reply") or "Happy to help."
-    return JSONResponse({"reply": reply, "suggest": action_obj.get("suggest") or [], "sidebar": sidebar})
+    # Default REPLY
+    return JSONResponse({
+        "reply": reply,
+        "suggest": suggestions,
+        "sidebar": get_sidebar(state),
+        "confidence": confidence,
+        "escalate": should_escalate(reply, confidence)
+    })
