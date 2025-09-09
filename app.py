@@ -60,6 +60,7 @@ Booking flow (slot filling):
 - If a slot is missing, ASK for it (one thing at a time). When all present, BOOK.
 - If time is unavailable, propose the nearest 3 alternatives.
 - Always confirm the summary before booking.
+- After booking, tell cancellation policy: 24h in advance.
 
 Style:
 - Warm, professional, specific. No filler. Use bullet points sparingly. Offer 2–3 smart follow-ups (“quick replies”).
@@ -93,12 +94,10 @@ def merge_slots(old: dict, new: dict) -> dict:
 
 # --- Routes ---
 
-# ✅ Health route
 @app.get("/")
 def root():
     return {"ok": True, "service": "chatbot", "status": "alive"}
 
-# ✅ Main chat route
 @app.post("/chat")
 async def chat(request: Request, session_id: str = Query(default="web")):
     payload = await request.json()
@@ -112,18 +111,18 @@ async def chat(request: Request, session_id: str = Query(default="web")):
 
     state = SESSIONS[session_id]
 
-    # Intro case (user opens page with no message)
+    # Intro case (no user message)
     if not user_msg:
         reply = "👋 Hello, I’m Kai, Glyns’s Salon’s virtual assistant. How can I help today?"
         return JSONResponse({
             "reply": reply,
-            "suggest": ["Opening hours", "Make a booking", "Contact details"],
+            "suggest": DEFAULT_SIDEBAR,
             "sidebar": get_sidebar(state),
             "confidence": 1.0,
             "escalate": False
         })
 
-    # Add message to history
+    # Add to history
     state["history"].append({"role":"user","content":user_msg})
 
     messages = [
@@ -162,7 +161,7 @@ async def chat(request: Request, session_id: str = Query(default="web")):
         if all(slots.get(k) for k in reqd):
             summary = f"{slots['service']} on {slots['date']} at {slots['time']} for {slots['name']}."
             reply = f"✅ Booked: {summary} A confirmation has been sent. Policy: Cancellations must be made 24h in advance."
-            state["booking"] = summary  # Save booking
+            state["booking"] = summary
             state["slots"] = {}
             return JSONResponse({
                 "reply": reply,
