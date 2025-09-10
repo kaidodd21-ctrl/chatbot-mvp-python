@@ -5,57 +5,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Kai • Virtual Assistant</title>
 <style>
-  :root{
-    --brand:#2e9153;
-    --brand-dark:#267945;
-    --page:#f5f7fb;
-    --card:#ffffff;
-    --muted:#6b7280;
-    --border:#eef0f4;
-    --bot:#eef2f3;
-    --user:#2e9153;
-    --text:#111827;
-    --shadow1:0 20px 50px rgba(24,39,75,.12), 0 10px 20px rgba(24,39,75,.08);
-    --chip:#ffffff;
-    --chip-border:#e5e7eb;
-  }
-
-  body{
-    margin:0; background:var(--page); color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  body {
+    margin:0; background:#f5f7fb; color:#111827;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     display:flex; align-items:center; justify-content:center; min-height:100vh; padding:18px;
   }
-  .card{ width:100%; max-width:860px; height:min(92vh,820px); background:var(--card); border-radius:16px;
-    box-shadow:var(--shadow1); display:flex; overflow:hidden; border:1px solid var(--border);}
-  .chat{ flex:1; display:flex; flex-direction:column; height:100%;}
-  .header{display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid var(--border);}
-  .avatar{width:36px; height:36px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:600; background:var(--brand);}
+  .card { width:100%; max-width:860px; height:min(92vh,820px); background:#fff; border-radius:16px;
+    box-shadow:0 20px 50px rgba(24,39,75,.12), 0 10px 20px rgba(24,39,75,.08); display:flex; overflow:hidden; }
+  .chat { flex:1; display:flex; flex-direction:column; }
+  .header { display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid #e5e7eb; }
+  .avatar { width:36px; height:36px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:600;
+    background:#2e9153; }
   .title{font-weight:700}
-  .subtitle{font-size:12px; color:var(--muted)}
+  .subtitle{font-size:12px; color:#6b7280}
   .spacer{flex:1}
-  .lang-select{padding:4px 6px; border-radius:6px; border:1px solid var(--border); background:#fff; font-size:13px;}
-
-  #chat-box{flex:1; overflow:auto; padding:18px;}
-  .row{display:flex; gap:10px; margin:12px 0;}
-  .row.bot{justify-content:flex-start}
+  #chat-box{ flex:1; overflow:auto; padding:18px; }
+  .row{display:flex; gap:10px; margin:12px 0; align-items:flex-end;}
+  .row.bot {justify-content:flex-start}
   .row.user{justify-content:flex-end}
-  .bubble{max-width:70%; padding:12px 14px; border-radius:18px; line-height:1.35; font-size:15px;}
-  .bot .bubble{background:var(--bot); color:var(--text); display:flex; align-items:center; gap:6px;}
-  .user .bubble{background:var(--user); color:#fff;}
-
-  .flag{font-size:14px;} /* flag in bot messages */
-  .typing .dot{ animation: blink 1.2s infinite ease-in-out; opacity:0.25;}
-  .typing .dot:nth-child(1){ animation-delay:0s }
-  .typing .dot:nth-child(2){ animation-delay:0.2s }
-  .typing .dot:nth-child(3){ animation-delay:0.4s }
-  @keyframes blink { 0%,80%,100%{opacity:0.25;} 40%{opacity:1;} }
-
-  #suggestions{display:flex; flex-wrap:wrap; gap:8px; padding:8px 18px 0 18px;}
-  #suggestions button{background:var(--chip); border:1px solid var(--chip-border); padding:7px 12px; border-radius:999px; cursor:pointer;}
-  .input{padding:12px; display:flex; gap:10px; border-top:1px solid var(--border);}
-  #user-input{flex:1; padding:12px 14px; border:1px solid var(--chip-border); border-radius:12px;}
-  #send-btn{padding:12px 18px; background:var(--brand); color:#fff; border:none; border-radius:12px; cursor:pointer; font-weight:600;}
-  #send-btn:hover{background:var(--brand-dark)}
+  .bubble{ max-width:70%; padding:12px 14px; border-radius:18px; line-height:1.35; font-size:15px; }
+  .bot .bubble{ background:#eef2f3; color:#111827; border-top-left-radius:10px; }
+  .user .bubble{ background:#2e9153; color:#fff; border-top-right-radius:10px; }
+  #suggestions{ display:flex; flex-wrap:wrap; gap:8px; padding:8px 18px 0 18px; }
+  #suggestions button{ background:#fff; border:1px solid #e5e7eb; padding:7px 12px; border-radius:999px; cursor:pointer; }
+  .input{ padding:12px; display:flex; gap:10px; border-top:1px solid #e5e7eb; }
+  #user-input{ flex:1; padding:12px 14px; border:1px solid #e5e7eb; border-radius:12px; }
+  #send-btn{ padding:12px 18px; background:#2e9153; color:#fff; border:none; border-radius:12px; cursor:pointer; font-weight:600; }
 </style>
 </head>
 <body>
@@ -65,17 +40,9 @@
         <div class="avatar">K</div>
         <div>
           <div class="title">Kai • Virtual Assistant</div>
-          <div class="subtitle">
-            Glyns’s Salon — <span id="status">Online now</span> • 
-            <span id="current-lang">🇬🇧 EN</span>
-          </div>
+          <div class="subtitle">Glyns’s Salon — Online now</div>
         </div>
         <div class="spacer"></div>
-        <select id="lang-select" class="lang-select">
-          <option value="en">🇬🇧 EN</option>
-          <option value="fr">🇫🇷 FR</option>
-          <option value="es">🇪🇸 ES</option>
-        </select>
       </div>
 
       <div id="chat-box"></div>
@@ -84,7 +51,6 @@
       <div class="input">
         <input id="user-input" type="text" placeholder="Type your message…" />
         <button id="send-btn">Send</button>
-        <button id="reset-btn">New Chat</button>
       </div>
     </div>
   </div>
@@ -93,131 +59,58 @@
   const API_URL = "https://chatbot-mvp-python.onrender.com/chat";
   const chatBox = document.getElementById("chat-box");
   const input = document.getElementById("user-input");
-  const langSelect = document.getElementById("lang-select");
-  const currentLangEl = document.getElementById("current-lang");
-  const SESSION_KEY = "chat_session_id";
-  const LANG_KEY = "chat_language";
+  const sendBtn = document.getElementById("send-btn");
 
-  let SESSION_ID = localStorage.getItem(SESSION_KEY) || ("sess_" + Math.random().toString(36).substr(2,9));
-  localStorage.setItem(SESSION_KEY, SESSION_ID);
-
-  if(localStorage.getItem(LANG_KEY)){
-    langSelect.value = localStorage.getItem(LANG_KEY);
-    updateCurrentLang(langSelect.value);
-  }
-
-  langSelect.addEventListener("change", ()=>{
-    localStorage.setItem(LANG_KEY, langSelect.value);
-    updateCurrentLang(langSelect.value);
-    addMessage("🔄 Language switched to " + langSelect.options[langSelect.selectedIndex].text,"bot",langSelect.value);
-  });
-
-  function flagForLang(lang){
-    if(lang==="fr") return "🇫🇷 FR";
-    if(lang==="es") return "🇪🇸 ES";
-    return "🇬🇧 EN";
-  }
-
-  function updateCurrentLang(lang){
-    currentLangEl.textContent = flagForLang(lang);
-  }
-
-  function addMessage(text,sender,lang="en"){
-    const row=document.createElement("div");
-    row.className="row "+sender;
-    const bubble=document.createElement("div");
-    bubble.className="bubble";
-    if(sender==="bot"){
-      const flag=document.createElement("span");
-      flag.className="flag";
-      flag.textContent=flagForLang(lang).split(" ")[0]; // just flag
-      bubble.appendChild(flag);
-    }
-    const msg=document.createElement("span");
-    msg.innerHTML=text;
-    bubble.appendChild(msg);
+  function addMessage(text, sender){
+    const row = document.createElement("div");
+    row.className = `row ${sender}`;
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = text;
     row.appendChild(bubble);
     chatBox.appendChild(row);
-    chatBox.scrollTop=chatBox.scrollHeight;
+    chatBox.scrollTop = chatBox.scrollHeight;
   }
 
   function renderSuggestions(suggest=[]){
-    const box=document.getElementById("suggestions");
-    box.innerHTML="";
-    (suggest||[]).forEach(txt=>{
-      const b=document.createElement("button");
-      b.textContent=txt;
-      b.onclick=()=>{input.value=txt; sendMessage();};
+    const box = document.getElementById("suggestions");
+    box.innerHTML = "";
+    suggest.forEach(txt=>{
+      const b = document.createElement("button");
+      b.textContent = txt;
+      b.onclick = ()=>{ input.value = txt; sendMessage(); };
       box.appendChild(b);
     });
   }
 
-  // Typing + filler
-  let typingEl=null;
-  let fillerTimeout=null;
-
-  function showTyping(){
-    if(typingEl) return;
-    typingEl=document.createElement("div");
-    typingEl.className="row bot typing";
-    typingEl.innerHTML=`<div class="bubble">Kai is typing <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>`;
-    chatBox.appendChild(typingEl);
-    chatBox.scrollTop=chatBox.scrollHeight;
-
-    // After 5s show filler
-    fillerTimeout=setTimeout(()=>{
-      if(typingEl){
-        typingEl.querySelector(".bubble").textContent="⏳ Still checking, please hold…";
-      }
-    },5000);
-  }
-
-  function hideTyping(){
-    if(typingEl){ typingEl.remove(); typingEl=null; }
-    if(fillerTimeout){ clearTimeout(fillerTimeout); fillerTimeout=null; }
-  }
-
-  async function sendMessage(textOverride=null){
-    const text=textOverride!==null?textOverride:input.value.trim();
-    if(!text && textOverride===null) return;
-    if(text) addMessage(text,"user");
-    input.value=""; input.focus();
-
-    // show typing right away
-    showTyping();
+  async function sendMessage(){
+    const text = input.value.trim();
+    if(!text) return;
+    addMessage(text, "user");
+    input.value = "";
 
     try{
-      const res=await fetch(API_URL+"?session_id="+SESSION_ID,{
+      const res = await fetch(API_URL + "?session_id=web", {
         method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({message:text, language:langSelect.value})
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ message: text })
       });
-      const data=await res.json();
-
-      hideTyping();
-
-      if(data.reply) addMessage(data.reply,"bot",data.language||langSelect.value);
-      renderSuggestions(data.suggest||[]);
-      if(data.language){
-        langSelect.value=data.language;
-        localStorage.setItem(LANG_KEY,data.language);
-        updateCurrentLang(data.language);
-      }
+      const data = await res.json();
+      if(data.reply) addMessage(data.reply, "bot");
+      renderSuggestions(data.suggest || []);
     }catch(e){
-      hideTyping();
-      addMessage("⚠️ Could not reach server.","bot");
+      addMessage("⚠️ Could not reach the server.", "bot");
     }
   }
 
-  document.getElementById("send-btn").addEventListener("click",()=>sendMessage());
-  input.addEventListener("keydown",e=>{if(e.key==="Enter")sendMessage();});
-  document.getElementById("reset-btn").addEventListener("click",()=>{
-    localStorage.removeItem(SESSION_KEY);
-    localStorage.removeItem("chat_history");
-    location.reload();
-  });
+  sendBtn.addEventListener("click", sendMessage);
+  input.addEventListener("keydown", e=>{ if(e.key==="Enter") sendMessage(); });
 
-  window.addEventListener("load",()=>{ sendMessage(""); });
+  // Intro
+  window.addEventListener("load", ()=>{
+    addMessage("👋 Hello, I’m Kai, Glyns’s Salon’s virtual assistant. How can I help today?", "bot");
+    renderSuggestions(["Opening hours","Make a booking","Contact details"]);
+  });
 </script>
 </body>
 </html>
