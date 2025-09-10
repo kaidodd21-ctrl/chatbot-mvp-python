@@ -5,198 +5,182 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Kai • Virtual Assistant</title>
 <style>
-  body {
-    margin:0; background:#f5f7fb; color:#111827;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  :root{
+    --brand:#2e9153;
+    --brand-dark:#267945;
+    --page:#f5f7fb;
+    --card:#ffffff;
+    --muted:#6b7280;
+    --border:#eef0f4;
+    --bot:#eef2f3;
+    --user:#2e9153;
+    --text:#111827;
+    --shadow1:0 20px 50px rgba(24,39,75,.12), 0 10px 20px rgba(24,39,75,.08);
+    --chip:#ffffff;
+    --chip-border:#e5e7eb;
+  }
+
+  body{
+    margin:0; background:var(--page); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     display:flex; align-items:center; justify-content:center; min-height:100vh; padding:18px;
   }
-  .card {
-    width:100%; max-width:860px; height:min(92vh,820px);
-    background:#fff; border-radius:16px; display:flex; overflow:hidden;
-    border:1px solid #e5e7eb; box-shadow:0 20px 40px rgba(0,0,0,.08);
-  }
-  .chat { flex:1; display:flex; flex-direction:column; }
-  .header { display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid #e5e7eb; }
-  .avatar { width:36px; height:36px; border-radius:50%; overflow:hidden; background:#2e9153; display:grid; place-items:center; color:#fff; font-weight:600; }
-  .title { font-weight:700; }
-  .subtitle { font-size:12px; color:#6b7280; }
-  .status { font-size:12px; color:green; }
-  #chat-box { flex:1; overflow:auto; padding:18px; background:#fafbfc; }
-  .row { display:flex; gap:10px; margin:12px 0; align-items:flex-end; }
-  .row.bot { justify-content:flex-start; }
-  .row.user { justify-content:flex-end; }
-  .bubble { max-width:70%; padding:12px 14px; border-radius:18px; line-height:1.35; font-size:15px; }
-  .bot .bubble { background:#eef2f3; color:#111827; border-top-left-radius:10px; }
-  .user .bubble { background:#2e9153; color:#fff; border-top-right-radius:10px; }
-  .timestamp { text-align:center; font-size:12px; color:#9ca3af; margin:10px 0; }
-  #suggestions, #sidebar { display:flex; flex-wrap:wrap; gap:8px; padding:8px 18px; }
-  #suggestions button, #sidebar button {
-    background:#fff; border:1px solid #e5e7eb; padding:6px 12px; border-radius:999px; cursor:pointer;
-    font-size:13px; box-shadow:0 2px 4px rgba(0,0,0,.05);
-  }
-  .input { padding:12px; display:flex; gap:10px; border-top:1px solid #e5e7eb; background:#fff; }
-  #user-input { flex:1; padding:12px 14px; border:1px solid #d1d5db; border-radius:12px; font-size:15px; }
-  #send-btn, #reset-btn { padding:12px 18px; border:none; border-radius:12px; cursor:pointer; font-weight:600; }
-  #send-btn { background:#2e9153; color:#fff; }
-  #reset-btn { background:#374151; color:#fff; margin-left:8px; }
-  .typing { display:inline-flex; gap:4px; }
-  .dot { width:6px; height:6px; border-radius:50%; background:#9aa3af; animation:blink 1.2s infinite ease-in-out; }
-  .dot:nth-child(2){ animation-delay:.2s } .dot:nth-child(3){ animation-delay:.4s }
-  @keyframes blink { 0%,80%,100%{opacity:.25} 40%{opacity:1} }
+  .card{ width:100%; max-width:860px; height:min(92vh,820px); background:var(--card); border-radius:16px;
+    box-shadow:var(--shadow1); display:flex; overflow:hidden; border:1px solid var(--border);}
+  .chat{ flex:1; display:flex; flex-direction:column; height:100%;}
+  .header{display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid var(--border);}
+  .avatar{width:36px; height:36px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:600; background:var(--brand);}
+  .title{font-weight:700}
+  .subtitle{font-size:12px; color:var(--muted)}
+  .spacer{flex:1}
+  .lang-select{padding:4px 6px; border-radius:6px; border:1px solid var(--border); background:#fff; font-size:13px;}
+
+  #chat-box{flex:1; overflow:auto; padding:18px;}
+  .row{display:flex; gap:10px; margin:12px 0;}
+  .row.bot{justify-content:flex-start}
+  .row.user{justify-content:flex-end}
+  .bubble{max-width:70%; padding:12px 14px; border-radius:18px; line-height:1.35; font-size:15px;}
+  .bot .bubble{background:var(--bot); color:var(--text); display:flex; align-items:center; gap:6px;}
+  .user .bubble{background:var(--user); color:#fff;}
+
+  .flag{font-size:14px;} /* flag in bot messages */
+
+  #suggestions{display:flex; flex-wrap:wrap; gap:8px; padding:8px 18px 0 18px;}
+  #suggestions button{background:var(--chip); border:1px solid var(--chip-border); padding:7px 12px; border-radius:999px; cursor:pointer;}
+  .input{padding:12px; display:flex; gap:10px; border-top:1px solid var(--border);}
+  #user-input{flex:1; padding:12px 14px; border:1px solid var(--chip-border); border-radius:12px;}
+  #send-btn{padding:12px 18px; background:var(--brand); color:#fff; border:none; border-radius:12px; cursor:pointer; font-weight:600;}
+  #send-btn:hover{background:var(--brand-dark)}
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="chat">
-    <div class="header">
-      <div class="avatar">K</div>
-      <div>
-        <div class="title">Kai • Virtual Assistant</div>
-        <div class="subtitle">Glyns’s Salon — <span class="status">Online now</span></div>
+  <div class="card">
+    <div class="chat">
+      <div class="header">
+        <div class="avatar">K</div>
+        <div>
+          <div class="title">Kai • Virtual Assistant</div>
+          <div class="subtitle">
+            Glyns’s Salon — <span id="status">Online now</span> • 
+            <span id="current-lang">🇬🇧 EN</span>
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <select id="lang-select" class="lang-select">
+          <option value="en">🇬🇧 EN</option>
+          <option value="fr">🇫🇷 FR</option>
+          <option value="es">🇪🇸 ES</option>
+        </select>
+      </div>
+
+      <div id="chat-box"></div>
+      <div id="suggestions"></div>
+
+      <div class="input">
+        <input id="user-input" type="text" placeholder="Type your message…" />
+        <button id="send-btn">Send</button>
+        <button id="reset-btn">New Chat</button>
       </div>
     </div>
-    <div id="chat-box"></div>
-    <div id="suggestions"></div>
-    <div class="input">
-      <input id="user-input" type="text" placeholder="Type your message…" />
-      <button id="send-btn">Send</button>
-      <button id="reset-btn">Start New Chat</button>
-    </div>
   </div>
-  <aside style="width:220px; border-left:1px solid #e5e7eb; padding:18px;">
-    <h4>Need something quick?</h4>
-    <div id="sidebar"></div>
-  </aside>
-</div>
 
 <script>
-const API_URL = "https://chatbot-mvp-python.onrender.com/chat";
-const chatBox=document.getElementById("chat-box");
-let typingEl=null;
-let lastMsgTime=0;
+  const API_URL = "https://chatbot-mvp-python.onrender.com/chat";
+  const chatBox = document.getElementById("chat-box");
+  const input = document.getElementById("user-input");
+  const langSelect = document.getElementById("lang-select");
+  const currentLangEl = document.getElementById("current-lang");
+  const SESSION_KEY = "chat_session_id";
+  const LANG_KEY = "chat_language";
 
-// --- Session handling ---
-function newSession(){
-  const id="sess_"+Math.random().toString(36).slice(2);
-  localStorage.setItem("chat_session_id", id);
-  localStorage.removeItem("chat_history");
-  return id;
-}
-let SESSION_ID=localStorage.getItem("chat_session_id")||newSession();
+  let SESSION_ID = localStorage.getItem(SESSION_KEY) || ("sess_" + Math.random().toString(36).substr(2,9));
+  localStorage.setItem(SESSION_KEY, SESSION_ID);
 
-// --- History persistence ---
-function saveHistory(text,sender){
-  let history=JSON.parse(localStorage.getItem("chat_history")||"[]");
-  history.push({text,sender,ts:Date.now()});
-  localStorage.setItem("chat_history",JSON.stringify(history));
-}
-function loadHistory(){
-  let history=JSON.parse(localStorage.getItem("chat_history")||"[]");
-  history.forEach(msg=>{
-    maybeTimestamp(msg.ts);
-    addMessage(msg.text,msg.sender,false);
-  });
-}
-
-// --- UI helpers ---
-function maybeTimestamp(ts){
-  if(ts-lastMsgTime>5*60*1000){ // gap >5min
-    const t=new Date(ts).toLocaleString();
-    const el=document.createElement("div");
-    el.className="timestamp"; el.textContent=t;
-    chatBox.appendChild(el);
+  if(localStorage.getItem(LANG_KEY)){
+    langSelect.value = localStorage.getItem(LANG_KEY);
+    updateCurrentLang(langSelect.value);
   }
-  lastMsgTime=ts;
-}
-function addMessage(text,sender,save=true){
-  const row=document.createElement("div");
-  row.className="row "+sender;
-  const bubble=document.createElement("div");
-  bubble.className="bubble"; bubble.innerHTML=text;
-  row.appendChild(bubble);
-  chatBox.appendChild(row);
-  chatBox.scrollTop=chatBox.scrollHeight;
-  if(save) saveHistory(text,sender);
-}
-function showTyping(){
-  if(typingEl) return;
-  typingEl=document.createElement("div");
-  typingEl.className="row bot";
-  typingEl.innerHTML=`<div class="bubble"><span class="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>`;
-  chatBox.appendChild(typingEl);
-  chatBox.scrollTop=chatBox.scrollHeight;
-}
-function hideTyping(){ if(typingEl){typingEl.remove(); typingEl=null;} }
-function renderSuggestions(suggest=[]){
-  const box=document.getElementById("suggestions");
-  box.innerHTML="";
-  suggest.forEach(txt=>{
-    const b=document.createElement("button"); b.textContent=txt;
-    b.onclick=()=>{document.getElementById("user-input").value=txt; sendMessage();};
-    box.appendChild(b);
-  });
-}
-function renderSidebar(items=[]){
-  const side=document.getElementById("sidebar");
-  side.innerHTML="";
-  items.forEach(txt=>{
-    const b=document.createElement("button"); b.textContent=txt;
-    b.onclick=()=>{document.getElementById("user-input").value=txt; sendMessage();};
-    side.appendChild(b);
-  });
-}
 
-// --- Chat logic ---
-async function sendMessage(){
-  const input=document.getElementById("user-input");
-  const text=input.value.trim();
-  if(!text) return;
-  maybeTimestamp(Date.now());
-  addMessage(text,"user");
-  input.value=""; input.focus();
-  showTyping();
-  try{
-    const res=await fetch(API_URL+"?session_id="+SESSION_ID,{
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({message:text})
-    });
-    const data=await res.json();
-    hideTyping();
-    maybeTimestamp(Date.now());
-    if(data.reply) addMessage(data.reply,"bot");
-    if(data.suggest) renderSuggestions(data.suggest);
-    if(data.sidebar) renderSidebar(data.sidebar);
-    if(data.escalate){
-      const esc=document.createElement("div");
-      esc.className="row bot";
-      esc.innerHTML=`<div class="bubble">📞 Call us: <a href="tel:08007779999">0800 777 9999</a><br>
-                     📧 Email: <a href="mailto:kmd@kai.com">kmd@kai.com</a><br>
-                     👤 Human support available</div>`;
-      chatBox.appendChild(esc);
+  langSelect.addEventListener("change", ()=>{
+    localStorage.setItem(LANG_KEY, langSelect.value);
+    updateCurrentLang(langSelect.value);
+    addMessage("🔄 Language switched to " + langSelect.options[langSelect.selectedIndex].text,"bot",langSelect.value);
+  });
+
+  function flagForLang(lang){
+    if(lang==="fr") return "🇫🇷 FR";
+    if(lang==="es") return "🇪🇸 ES";
+    return "🇬🇧 EN";
+  }
+
+  function updateCurrentLang(lang){
+    currentLangEl.textContent = flagForLang(lang);
+  }
+
+  function addMessage(text,sender,lang="en"){
+    const row=document.createElement("div");
+    row.className="row "+sender;
+    const bubble=document.createElement("div");
+    bubble.className="bubble";
+    if(sender==="bot"){
+      const flag=document.createElement("span");
+      flag.className="flag";
+      flag.textContent=flagForLang(lang).split(" ")[0]; // just flag
+      bubble.appendChild(flag);
     }
-  }catch(err){
-    hideTyping();
-    addMessage("⚠️ Could not reach the server.","bot");
+    const msg=document.createElement("span");
+    msg.innerHTML=text;
+    bubble.appendChild(msg);
+    row.appendChild(bubble);
+    chatBox.appendChild(row);
+    chatBox.scrollTop=chatBox.scrollHeight;
   }
-}
 
-// --- Events ---
-document.getElementById("send-btn").addEventListener("click",sendMessage);
-document.getElementById("user-input").addEventListener("keydown",e=>{if(e.key==="Enter") sendMessage();});
-document.getElementById("reset-btn").addEventListener("click",()=>{SESSION_ID=newSession(); location.reload();});
+  function renderSuggestions(suggest=[]){
+    const box=document.getElementById("suggestions");
+    box.innerHTML="";
+    (suggest||[]).forEach(txt=>{
+      const b=document.createElement("button");
+      b.textContent=txt;
+      b.onclick=()=>{input.value=txt; sendMessage();};
+      box.appendChild(b);
+    });
+  }
 
-// --- Init ---
-loadHistory();
-if(!localStorage.getItem("chat_history")){
-  fetch(API_URL+"?session_id="+SESSION_ID,{
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({message:""})
-  }).then(r=>r.json()).then(data=>{
-    if(data.reply) addMessage(data.reply,"bot");
-    if(data.suggest) renderSuggestions(data.suggest);
-    if(data.sidebar) renderSidebar(data.sidebar);
+  async function sendMessage(textOverride=null){
+    const text=textOverride!==null?textOverride:input.value.trim();
+    if(!text && textOverride===null) return;
+    if(text) addMessage(text,"user");
+    input.value=""; input.focus();
+
+    try{
+      const res=await fetch(API_URL+"?session_id="+SESSION_ID,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({message:text, language:langSelect.value})
+      });
+      const data=await res.json();
+      if(data.reply) addMessage(data.reply,"bot",data.language||langSelect.value);
+      renderSuggestions(data.suggest||[]);
+      if(data.language){
+        langSelect.value=data.language;
+        localStorage.setItem(LANG_KEY,data.language);
+        updateCurrentLang(data.language);
+      }
+    }catch(e){
+      addMessage("⚠️ Could not reach server.","bot");
+    }
+  }
+
+  document.getElementById("send-btn").addEventListener("click",()=>sendMessage());
+  input.addEventListener("keydown",e=>{if(e.key==="Enter")sendMessage();});
+  document.getElementById("reset-btn").addEventListener("click",()=>{
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem("chat_history");
+    location.reload();
   });
-}
+
+  window.addEventListener("load",()=>{ sendMessage(""); });
 </script>
 </body>
 </html>
