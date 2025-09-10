@@ -1,116 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Kai • Virtual Assistant</title>
-<style>
-  body {
-    margin:0; background:#f5f7fb; color:#111827;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    display:flex; align-items:center; justify-content:center; min-height:100vh; padding:18px;
-  }
-  .card { width:100%; max-width:860px; height:min(92vh,820px); background:#fff; border-radius:16px;
-    box-shadow:0 20px 50px rgba(24,39,75,.12), 0 10px 20px rgba(24,39,75,.08); display:flex; overflow:hidden; }
-  .chat { flex:1; display:flex; flex-direction:column; }
-  .header { display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid #e5e7eb; }
-  .avatar { width:36px; height:36px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:600;
-    background:#2e9153; }
-  .title{font-weight:700}
-  .subtitle{font-size:12px; color:#6b7280}
-  .spacer{flex:1}
-  #chat-box{ flex:1; overflow:auto; padding:18px; }
-  .row{display:flex; gap:10px; margin:12px 0; align-items:flex-end;}
-  .row.bot {justify-content:flex-start}
-  .row.user{justify-content:flex-end}
-  .bubble{ max-width:70%; padding:12px 14px; border-radius:18px; line-height:1.35; font-size:15px; }
-  .bot .bubble{ background:#eef2f3; color:#111827; border-top-left-radius:10px; }
-  .user .bubble{ background:#2e9153; color:#fff; border-top-right-radius:10px; }
-  #suggestions{ display:flex; flex-wrap:wrap; gap:8px; padding:8px 18px 0 18px; }
-  #suggestions button{ background:#fff; border:1px solid #e5e7eb; padding:7px 12px; border-radius:999px; cursor:pointer; }
-  .input{ padding:12px; display:flex; gap:10px; border-top:1px solid #e5e7eb; }
-  #user-input{ flex:1; padding:12px 14px; border:1px solid #e5e7eb; border-radius:12px; }
-  #send-btn{ padding:12px 18px; background:#2e9153; color:#fff; border:none; border-radius:12px; cursor:pointer; font-weight:600; }
-</style>
+  <meta charset="UTF-8"/>
+  <title>Kai • Virtual Assistant</title>
+  <style>
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#f5f7fb;display:flex;justify-content:center;align-items:center;height:100vh}
+    .card{width:100%;max-width:860px;height:90vh;background:#fff;border-radius:16px;box-shadow:0 6px 20px rgba(0,0,0,.1);display:flex;flex-direction:column;overflow:hidden}
+    .header{padding:12px 16px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:10px}
+    .avatar{width:32px;height:32px;border-radius:50%;background:#2e9153;display:grid;place-items:center;color:#fff;font-weight:bold}
+    .title{font-weight:600}.subtitle{font-size:12px;color:#666}
+    #chat-box{flex:1;overflow-y:auto;padding:16px;background:#fafbfc}
+    .row{margin:8px 0;display:flex;gap:8px}
+    .bot .bubble{background:#eef2f3;color:#111;border-radius:12px;padding:10px 14px;max-width:70%}
+    .user .bubble{background:#2e9153;color:#fff;border-radius:12px;padding:10px 14px;max-width:70%;margin-left:auto}
+    #suggestions{display:flex;flex-wrap:wrap;gap:8px;padding:8px;border-top:1px solid #eee;background:#fafbfc}
+    #suggestions button{padding:6px 12px;border:none;border-radius:16px;background:#fff;border:1px solid #ddd;cursor:pointer}
+    .input{display:flex;border-top:1px solid #eee}
+    #user-input{flex:1;border:none;padding:12px;font-size:15px;outline:none}
+    #send-btn{background:#2e9153;color:#fff;border:none;padding:12px 20px;cursor:pointer}
+  </style>
 </head>
 <body>
   <div class="card">
-    <div class="chat">
-      <div class="header">
-        <div class="avatar">K</div>
-        <div>
-          <div class="title">Kai • Virtual Assistant</div>
-          <div class="subtitle">Glyns’s Salon — Online now</div>
-        </div>
-        <div class="spacer"></div>
+    <div class="header">
+      <div class="avatar">K</div>
+      <div>
+        <div class="title">Kai • Virtual Assistant</div>
+        <div class="subtitle">Glyns’s Salon — <span style="color:green">Online now</span></div>
       </div>
-
-      <div id="chat-box"></div>
-      <div id="suggestions"></div>
-
-      <div class="input">
-        <input id="user-input" type="text" placeholder="Type your message…" />
-        <button id="send-btn">Send</button>
-      </div>
+    </div>
+    <div id="chat-box"></div>
+    <div id="suggestions"></div>
+    <div class="input">
+      <input id="user-input" type="text" placeholder="Type your message…"/>
+      <button id="send-btn">Send</button>
     </div>
   </div>
 
 <script>
-  const API_URL = "https://chatbot-mvp-python.onrender.com/chat";
-  const chatBox = document.getElementById("chat-box");
-  const input = document.getElementById("user-input");
-  const sendBtn = document.getElementById("send-btn");
+const API_URL = "https://chatbot-mvp-python.onrender.com/chat";
+const DEFAULT_SIDEBAR = ["Opening hours","Make a booking","Contact details"];
+const chatBox = document.getElementById("chat-box");
+const input = document.getElementById("user-input");
+const sendBtn = document.getElementById("send-btn");
 
-  function addMessage(text, sender){
-    const row = document.createElement("div");
-    row.className = `row ${sender}`;
-    const bubble = document.createElement("div");
-    bubble.className = "bubble";
-    bubble.textContent = text;
-    row.appendChild(bubble);
-    chatBox.appendChild(row);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
+function addMessage(text, sender){
+  const row = document.createElement("div");
+  row.className = "row " + sender;
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.textContent = text;
+  row.appendChild(bubble);
+  chatBox.appendChild(row);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
 
-  function renderSuggestions(suggest=[]){
-    const box = document.getElementById("suggestions");
-    box.innerHTML = "";
-    suggest.forEach(txt=>{
-      const b = document.createElement("button");
-      b.textContent = txt;
-      b.onclick = ()=>{ input.value = txt; sendMessage(); };
-      box.appendChild(b);
-    });
-  }
-
-  async function sendMessage(){
-    const text = input.value.trim();
-    if(!text) return;
-    addMessage(text, "user");
-    input.value = "";
-
-    try{
-      const res = await fetch(API_URL + "?session_id=web", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ message: text })
-      });
-      const data = await res.json();
-      if(data.reply) addMessage(data.reply, "bot");
-      renderSuggestions(data.suggest || []);
-    }catch(e){
-      addMessage("⚠️ Could not reach the server.", "bot");
-    }
-  }
-
-  sendBtn.addEventListener("click", sendMessage);
-  input.addEventListener("keydown", e=>{ if(e.key==="Enter") sendMessage(); });
-
-  // Intro
-  window.addEventListener("load", ()=>{
-    addMessage("👋 Hello, I’m Kai, Glyns’s Salon’s virtual assistant. How can I help today?", "bot");
-    renderSuggestions(["Opening hours","Make a booking","Contact details"]);
+function renderSuggestions(suggest){
+  const box = document.getElementById("suggestions");
+  box.innerHTML = "";
+  (suggest && suggest.length ? suggest : DEFAULT_SIDEBAR).forEach(s=>{
+    const b=document.createElement("button");
+    b.textContent=s;
+    b.onclick=()=>{input.value=s;sendMessage()};
+    box.appendChild(b);
   });
+}
+
+async function sendMessage(){
+  const text = input.value.trim();
+  if(!text) return;
+  addMessage(text,"user");
+  input.value="";
+  try{
+    const res=await fetch(API_URL+"?session_id=web",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:text})});
+    const data=await res.json();
+    if(data.reply) addMessage(data.reply,"bot");
+    renderSuggestions(data.suggest);
+  }catch(e){
+    addMessage("⚠️ Could not reach server.","bot");
+    renderSuggestions(DEFAULT_SIDEBAR);
+  }
+}
+
+sendBtn.onclick=sendMessage;
+input.addEventListener("keydown",e=>{if(e.key==="Enter")sendMessage()});
+
+// intro
+window.addEventListener("load",()=>{
+  addMessage("👋 Hello, I’m Kai, Glyns’s Salon’s virtual assistant. How can I help today?","bot");
+  renderSuggestions(DEFAULT_SIDEBAR);
+});
 </script>
 </body>
 </html>
