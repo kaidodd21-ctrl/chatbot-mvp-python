@@ -1,106 +1,127 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Kai • Virtual Assistant</title>
-<style>
-  body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background:#f5f7fb; }
-  .chat-container { max-width: 800px; margin: 20px auto; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,.08); }
-  .header { background:#2e9153; color:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; }
-  .header .status { font-size:14px; }
-  .header button { background:none; border:none; color:#fff; cursor:pointer; font-size:14px; }
-  #chat-box { height:500px; overflow-y:auto; padding:16px; }
-  .row { display:flex; margin-bottom:10px; }
-  .bot { justify-content:flex-start; }
-  .user { justify-content:flex-end; }
-  .bubble { padding:10px 14px; border-radius:16px; max-width:65%; line-height:1.4; }
-  .bot .bubble { background:#eef2f3; color:#111; border-bottom-left-radius:4px; }
-  .user .bubble { background:#2e9153; color:#fff; border-bottom-right-radius:4px; }
-  .meta { font-size:11px; color:#999; margin-top:2px; }
-  .input-area { display:flex; border-top:1px solid #ddd; }
-  #user-input { flex:1; padding:12px; border:none; font-size:15px; outline:none; }
-  #send-btn { background:#2e9153; color:#fff; border:none; padding:0 20px; cursor:pointer; }
-  #suggestions { display:flex; gap:8px; flex-wrap:wrap; padding:8px 16px; border-top:1px solid #eee; }
-  #suggestions button { border:1px solid #ccc; background:#fff; border-radius:16px; padding:6px 12px; cursor:pointer; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kai • Virtual Assistant</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="chat-container">
-  <div class="header">
-    <div>Kai • Virtual Assistant</div>
-    <div class="status">🟢 Online now</div>
-    <button onclick="restartChat()">⟳ Restart</button>
+  <div id="chat-container">
+    <header>
+      <h2>Kai • Virtual Assistant</h2>
+      <div class="status">🟢 Online now</div>
+      <button onclick="restartChat()">⟳ Restart</button>
+    </header>
+
+    <div id="chat-box"></div>
+
+    <div id="input-container">
+      <input id="user-input" type="text" placeholder="Type a message..." />
+      <button onclick="handleSend()">Send</button>
+    </div>
   </div>
-  <div id="chat-box"></div>
-  <div id="suggestions"></div>
-  <div class="input-area">
-    <input id="user-input" type="text" placeholder="Type your message…" />
-    <button id="send-btn">Send</button>
-  </div>
-</div>
 
-<script>
-const API_URL = "https://chatbot-mvp-python.onrender.com/chat";
-const chatBox = document.getElementById("chat-box");
-const input = document.getElementById("user-input");
-const suggestionsDiv = document.getElementById("suggestions");
+  <script>
+  const BACKEND_URL = "http://127.0.0.1:8000/chat"; // replace with Render URL after deploy
 
-let sessionId = "web-" + Math.random().toString(36).substr(2, 9);
+  function addUserMessage(text) {
+    const chatBox = document.getElementById("chat-box");
+    const msgWrapper = document.createElement("div");
+    msgWrapper.className = "message user";
+    const statusId = "status-" + Date.now();
 
-function addMessage(sender, text) {
-  const row = document.createElement("div");
-  row.className = "row " + sender;
-  const bubble = document.createElement("div");
-  bubble.className = "bubble";
-  bubble.innerHTML = text;
-  row.appendChild(bubble);
-  chatBox.appendChild(row);
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
+    msgWrapper.innerHTML = `
+      <div class="avatar"></div>
+      <div class="bubble">${text}</div>
+      <div class="status" id="${statusId}">✓ Sent</div>
+    `;
 
-function renderSuggestions(suggest=[]) {
-  suggestionsDiv.innerHTML = "";
-  suggest.forEach(txt => {
-    const btn = document.createElement("button");
-    btn.textContent = txt;
-    btn.onclick = () => { input.value = txt; sendMessage(); };
-    suggestionsDiv.appendChild(btn);
-  });
-}
+    chatBox.appendChild(msgWrapper);
+    chatBox.scrollTop = chatBox.scrollHeight;
 
-async function sendMessage() {
-  const text = input.value.trim();
-  if (!text) return;
-  addMessage("user", text + " <span class='meta'>✓ Sent</span>");
-  input.value = "";
+    return document.getElementById(statusId);
+  }
 
-  try {
-    const res = await fetch(API_URL + "?session_id=" + sessionId, {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ message:text })
+  function addBotMessage(text, suggestions = []) {
+    const chatBox = document.getElementById("chat-box");
+    const msgWrapper = document.createElement("div");
+    msgWrapper.className = "message bot";
+    msgWrapper.innerHTML = `
+      <div class="avatar"></div>
+      <div class="bubble">${text}</div>
+    `;
+    chatBox.appendChild(msgWrapper);
+
+    if (suggestions.length > 0) {
+      const suggBox = document.createElement("div");
+      suggBox.className = "suggestions";
+      suggestions.forEach(s => {
+        const btn = document.createElement("button");
+        btn.innerText = s;
+        btn.onclick = () => sendMessage(s);
+        suggBox.appendChild(btn);
+      });
+      chatBox.appendChild(suggBox);
+    }
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function showTyping() {
+    const chatBox = document.getElementById("chat-box");
+    const typingDiv = document.createElement("div");
+    typingDiv.id = "typing";
+    typingDiv.className = "message bot";
+    typingDiv.innerHTML = `
+      <div class="avatar"></div>
+      <div class="bubble typing">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>`;
+    chatBox.appendChild(typingDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function hideTyping() {
+    const typingDiv = document.getElementById("typing");
+    if (typingDiv) typingDiv.remove();
+  }
+
+  async function sendMessage(text) {
+    const statusEl = addUserMessage(text);
+    document.getElementById("user-input").value = "";
+
+    showTyping();
+
+    const res = await fetch(BACKEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text })
     });
     const data = await res.json();
-    addMessage("bot", data.reply);
-    renderSuggestions(data.suggest || []);
-  } catch(e) {
-    addMessage("bot","⚠️ Error contacting server.");
+
+    // Simulated typing delay
+    setTimeout(() => {
+      hideTyping();
+      addBotMessage(data.reply, data.suggestions);
+      statusEl.innerText = "✓✓ Read";
+    }, Math.floor(Math.random() * 1000) + 500);
   }
-}
 
-function restartChat() {
-  sessionId = "web-" + Math.random().toString(36).substr(2, 9);
-  chatBox.innerHTML = "";
-  suggestionsDiv.innerHTML = "";
-  sendMessage(); // trigger intro
-}
+  function handleSend() {
+    const input = document.getElementById("user-input").value.trim();
+    if (input) sendMessage(input);
+  }
 
-document.getElementById("send-btn").addEventListener("click", sendMessage);
-input.addEventListener("keydown", e => { if (e.key === "Enter") sendMessage(); });
+  function restartChat() {
+    document.getElementById("chat-box").innerHTML = "";
+    addBotMessage(
+      "Hi 👋 I’m Kai, your assistant. How can I help today?",
+      ["Make a booking", "Opening hours", "Contact details"]
+    );
+  }
 
-// intro
-sendMessage();
-</script>
+  window.onload = restartChat;
+  </script>
 </body>
 </html>

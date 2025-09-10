@@ -1,0 +1,130 @@
+body {
+  font-family: system-ui, sans-serif;
+  background: #f7f7f7;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+#chat-container {
+  width: 400px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+header {
+  background: #075e54;
+  color: #fff;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#chat-box {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+}
+#input-container {
+  display: flex;
+  border-top: 1px solid #ddd;
+}
+#input-container input {
+  flex: 1;
+  border: none;
+  padding: 10px;
+  font-size: 14px;
+}
+#input-container button {
+  background: #075e54;
+  color: #fff;
+  border: none;
+  padding: 10px 15px;
+  cursor: pointer;
+}
+.message {
+  display: flex;
+  align-items: flex-start;
+  margin: 8px 0;
+}
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin-right: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  font-weight: bold;
+  font-size: 14px;
+}
+.message.user .avatar {
+  background: #34b7f1; /* blue */
+}
+.message.user .avatar::after {
+  content: "U"; /* User initial */
+}
+.message.bot .avatar {
+  background: #075e54; /* green */
+}
+.message.bot .avatar::after {
+  content: "K"; /* Kai initial */
+}
+.bubble {
+  padding: 8px 12px;
+  border-radius: 12px;
+  max-width: 70%;
+}
+.user .bubble {
+  background: #dcf8c6;
+}
+.bot .bubble {
+  background: #f1f0f0;
+}
+.status {
+  font-size: 10px;
+  margin-left: auto;
+  margin-top: 4px;
+  color: #666;
+}
+.bubble.typing {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  background: #555;
+  border-radius: 50%;
+  animation: blink 1.4s infinite both;
+}
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0; }
+  40% { opacity: 1; }
+}
+.suggestions {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+.suggestions button {
+  border: 1px solid #075e54;
+  background: #fff;
+  color: #075e54;
+  padding: 6px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.suggestions button:hover {
+  background: #075e54;
+  color: #fff;
+}
