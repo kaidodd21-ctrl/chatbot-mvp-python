@@ -2,98 +2,99 @@ from fastapi import FastAPI, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from openai import OpenAI
-import os, json, re, time, random
+import os, json, re, time
 from dotenv import load_dotenv
 from collections import defaultdict
 
-# Load env vars & init OpenAI client
+# --- Setup ---
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Create FastAPI app
 app = FastAPI()
 
-# Allow frontend (GitHub Pages) to connect
+# Allow frontend (GitHub Pages)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: restrict to your frontend domain later
+    allow_origins=["*"],  # TODO: restrict later
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# In-memory session store
-SESSIONS = defaultdict(lambda: {"slots": {}, "history": [], "booking": None, "smalltalk_count": 0})
-SESSION_TTL_SECONDS = 60 * 30  # 30 mins
+# --- Sessions ---
+SESSIONS = defaultdict(lambda: {"slots": {}, "history": [], "booking": None, "spam_count": 0})
+SESSION_TTL_SECONDS = 60 * 30
 LAST_SEEN = {}
 def now(): return int(time.time())
 
-# Sidebar defaults
+# --- Sidebar Defaults ---
 DEFAULT_SIDEBAR = ["Opening hours", "Make a booking", "Contact details"]
 
 def get_sidebar(state):
-    """Return sidebar options depending on context"""
+    """Dynamic sidebar: changes if booking exists."""
     if state.get("booking"):
         return ["Cancel booking", "Contact details"]
     return DEFAULT_SIDEBAR
 
-# Escalation rule
+# --- Escalation Rules ---
 def should_escalate(reply: str, confidence: float) -> bool:
     low_conf = confidence < 0.7
     unsure = any(phrase in reply.lower() for phrase in ["not sure", "don’t know", "cannot help"])
     return low_conf or unsure
 
-# Load business knowledge (FAQ/training file)
+# --- Load knowledge base ---
 with open("salon_restaurant_bot_training.txt", "r", encoding="utf-8") as f:
     KNOWLEDGE = f.read()
 
-# Reset triggers (start fresh)
-RESET_TRIGGERS = ["hello", "hi", "hey", "start", "restart", "new chat"]
+# --- System Prompt ---
+SYSTEM_PROMPT = """
+You are Kai, a calm, fast, and friendly virtual assistant for Glyns’s Salon & Jak Bistro.
 
-# --- Smalltalk ---
-SMALLTALK = {
-    "greeting": {
-        "triggers": ["hello", "helo", "hi", "hii", "hey", "heyy", "hiya"],
-        "responses": [
-            "Hello 👋 How can I help you today?",
-            "Hi there! I’m here to help with bookings, services, or opening hours.",
-            "Hey! Need help finding a service or making an appointment?",
-            "Hi 👋 What would you like to do today — check hours, book, or ask about treatments?",
-            "Hello! 😊 I can help you make a booking or answer your questions right away."
-        ]
-    },
-    "how_are_you": {
-        "triggers": ["how are you", "how’s it going", "you ok", "you okay", "hru", "how r u"],
-        "responses": [
-            "I’m doing great, thanks for asking! 😊 Want me to help with a booking?",
-            "I’m well, thank you! How about you? Would you like me to check services?",
-            "All good here! ✨ Do you want opening hours or a booking?",
-            "I’m feeling good and ready to help. Shall I find availability for you?",
-            "Doing well, thanks 🙏 I can check services or book something for you if you’d like."
-        ]
-    },
-    # ... (other 13 categories like thanks, identity, compliments, jokes, etc. from V5.6) ...
+Goals:
+1. Understand intent quickly (faq | hours | pricing | menu | booking | reschedule | cancel | contact).
+2. Advance conversation with the fewest steps.
+3. Be grounded in knowledge; if unknown, escalate politely.
+4. Keep replies short, warm, and professional — but also personable. Avoid robotic repetition.
+
+Booking flow:
+- Required: service, date, time, name, contact.
+- If missing, ask ONE at a time.
+- Accept freeform like "next available", "anytime".
+- Confirm summary before booking.
+- Mention cancellation policy after booking.
+
+Style:
+- Conversational, like Alexa/Siri. Slight emoji use (😊👍).
+- Offer 2–3 smart follow-ups.
+- Avoid repeating the same phrase twice.
+
+Output contract (always JSON only):
+{
+  "action": "REPLY|ASK|CHECK_AVAILABILITY|BOOK|ESCALATE|CANCEL_BOOKING|END_CHAT",
+  "reply": "message",
+  "slots": { "service": "", "date": "", "time": "", "name": "", "contact": "" },
+  "suggest": ["opt1","opt2","opt3"],
+  "confidence": 0.0
 }
+"""
 
-def handle_smalltalk(user_msg: str, state: dict) -> str | None:
-    msg = user_msg.lower().strip()
-    msg = re.sub(r"[^a-z0-9\s]", "", msg)
-    for intent, data in SMALLTALK.items():
-        for trigger in data["triggers"]:
-            if trigger in msg:
-                state["smalltalk_count"] += 1
-                response = random.choice(data["responses"])
-                # Failsafe chit-chat redirect
-                if state["smalltalk_count"] == 3:
-                    response += " By the way, I can also help with bookings or opening hours!"
-                elif state["smalltalk_count"] >= 5:
-                    response = "It’s been nice chatting 😊 If that’s all for now, I’ll wish you a great day! 👋"
-                    state["smalltalk_count"] = 0
-                return response
-    return None
+# --- Helpers ---
+def clean_and_parse_json(s: str) -> dict:
+    m = re.search(r"\{.*\}", s, re.S)
+    if not m:
+        return {"action":"REPLY","reply":"Sorry, I couldn’t parse that.","slots":{},"suggest":[],"confidence":0.0}
+    try:
+        return json.loads(m.group(0))
+    except Exception:
+        return {"action":"REPLY","reply":"Got it.","slots":{},"suggest":[],"confidence":0.0}
+
+def merge_slots(old: dict, new: dict) -> dict:
+    out = dict(old or {})
+    for k,v in (new or {}).items():
+        if v: out[k]=v
+    return out
 
 # --- Routes ---
-
 @app.get("/")
 def root():
     return {"ok": True, "service": "chatbot", "status": "alive"}
@@ -105,54 +106,51 @@ async def chat(request: Request, session_id: str = Query(default="web")):
 
     # Session cleanup
     LAST_SEEN[session_id] = now()
-    for sid, t in list(LAST_SEEN.items()):
+    for sid,t in list(LAST_SEEN.items()):
         if now() - t > SESSION_TTL_SECONDS:
-            SESSIONS.pop(sid, None)
-            LAST_SEEN.pop(sid, None)
+            SESSIONS.pop(sid, None); LAST_SEEN.pop(sid, None)
 
     state = SESSIONS[session_id]
 
-    # ✅ Restart triggers
-    if user_msg in RESET_TRIGGERS:
-        SESSIONS[session_id] = {"slots": {}, "history": [], "booking": None, "smalltalk_count": 0}
-        reply = "👋 Hello again, I’m Kai, Glyns’s Salon’s virtual assistant. How can I help today?"
+    # --- Restart Chat ---
+    if user_msg in ["restart", "reset", "new chat", "start over"]:
+        SESSIONS[session_id] = {"slots": {}, "history": [], "booking": None, "spam_count": 0}
         return JSONResponse({
-            "reply": reply,
+            "reply": "🔄 Chat restarted. Hi, I’m Kai! How can I help today?",
             "suggest": DEFAULT_SIDEBAR,
-            "sidebar": DEFAULT_SIDEBAR,
-            "confidence": 1.0,
-            "escalate": False
+            "sidebar": get_sidebar(SESSIONS[session_id]),
+            "status": "delivered"
         })
 
-    # ✅ Empty intro case
-    if not user_msg:
-        reply = "👋 Hello, I’m Kai, Glyns’s Salon’s virtual assistant. How can I help today?"
-        return JSONResponse({
-            "reply": reply,
-            "suggest": DEFAULT_SIDEBAR,
-            "sidebar": DEFAULT_SIDEBAR,
-            "confidence": 1.0,
-            "escalate": False
-        })
+    # --- Spam filter ---
+    if user_msg in ["bad","nonsense","blah","test","ok","end chat"]:
+        state["spam_count"] += 1
+        if state["spam_count"] > 4:
+            return JSONResponse({
+                "reply": "👋 I’ll step back now, but I wish you a great day!",
+                "suggest": [],
+                "sidebar": get_sidebar(state),
+                "action": "END_CHAT",
+                "status": "delivered"
+            })
 
-    # ✅ Smalltalk handling
-    smalltalk_reply = handle_smalltalk(user_msg, state)
-    if smalltalk_reply:
+    # Intro (no input yet)
+    if not payload.get("message"):
         return JSONResponse({
-            "reply": smalltalk_reply,
+            "reply": "👋 Hello, I’m Kai, Glyns’s Salon’s virtual assistant. How can I help today?",
             "suggest": DEFAULT_SIDEBAR,
             "sidebar": get_sidebar(state),
-            "confidence": 1.0,
-            "escalate": False
+            "status": "delivered"
         })
 
-    # If not smalltalk → normal AI logic
-    state["history"].append({"role": "user", "content": user_msg})
+    # Append to history
+    state["history"].append({"role":"user","content":user_msg})
 
+    # Prepare LLM call
     messages = [
-        {"role": "system", "content": "You are Kai, Glyns’s Salon’s virtual assistant. Be helpful and concise."},
-        {"role": "system", "content": f"KNOWLEDGE:\n{KNOWLEDGE}"},
-        {"role": "system", "content": f"CURRENT SLOTS: {json.dumps(state.get('slots', {}))}"},
+        {"role":"system","content": SYSTEM_PROMPT},
+        {"role":"system","content": f"KNOWLEDGE:\n{KNOWLEDGE}"},
+        {"role":"system","content": f"CURRENT SLOTS: {json.dumps(state.get('slots',{}))}"},
     ] + state["history"][-6:]
 
     resp = client.chat.completions.create(
@@ -160,12 +158,76 @@ async def chat(request: Request, session_id: str = Query(default="web")):
         messages=messages,
         temperature=0.3
     )
-    reply = resp.choices[0].message.content.strip()
+    action_obj = clean_and_parse_json(resp.choices[0].message.content)
 
+    # Merge slots
+    state["slots"] = merge_slots(state.get("slots", {}), action_obj.get("slots", {}))
+    action = (action_obj.get("action") or "REPLY").upper()
+    reply = action_obj.get("reply") or "Happy to help."
+    suggestions = action_obj.get("suggest") or DEFAULT_SIDEBAR
+    confidence = action_obj.get("confidence") or 0.5
+
+    # --- Booking flow ---
+    if action == "BOOK":
+        slots = state["slots"]
+        reqd = ["service","date","time","name","contact"]
+        if all(slots.get(k) for k in reqd):
+            summary = f"{slots['service']} on {slots['date']} at {slots['time']} for {slots['name']}."
+            reply = f"✅ Booked: {summary} A confirmation has been sent. Policy: 24h cancellation."
+            state["booking"] = summary
+            state["slots"] = {}
+            return JSONResponse({
+                "reply": reply,
+                "suggest": ["Add to calendar","Another booking","Cancel booking"],
+                "sidebar": get_sidebar(state),
+                "status": "delivered"
+            })
+        else:
+            missing = [k for k in reqd if not slots.get(k)]
+            reply = f"I can book that. I still need: {', '.join(missing)}."
+            return JSONResponse({
+                "reply": reply,
+                "suggest": ["Provide details","Pick a time","Cancel"],
+                "sidebar": get_sidebar(state),
+                "status": "delivered"
+            })
+
+    # --- Cancel booking ---
+    if action == "CANCEL_BOOKING":
+        if state.get("booking"):
+            reply = f"❌ Your booking ({state['booking']}) has been cancelled."
+            state["booking"] = None
+        else:
+            reply = "You don’t have any active booking to cancel."
+        return JSONResponse({
+            "reply": reply,
+            "suggest": ["Make a new booking","Contact details"],
+            "sidebar": get_sidebar(state),
+            "status": "delivered"
+        })
+
+    # --- Escalation ---
+    if action == "ESCALATE":
+        return JSONResponse({
+            "reply": reply or "I can connect you to a human if you like.",
+            "suggest": ["📞 Call us","✉️ Email us","💬 Speak to staff"],
+            "sidebar": get_sidebar(state),
+            "status": "delivered"
+        })
+
+    # --- End chat ---
+    if action == "END_CHAT":
+        return JSONResponse({
+            "reply": "👋 Thanks for chatting. Have a great day!",
+            "suggest": [],
+            "sidebar": [],
+            "status": "read"
+        })
+
+    # --- Default reply ---
     return JSONResponse({
         "reply": reply,
-        "suggest": DEFAULT_SIDEBAR,
+        "suggest": suggestions,
         "sidebar": get_sidebar(state),
-        "confidence": 0.9,
-        "escalate": should_escalate(reply, 0.9)
+        "status": "delivered"
     })
