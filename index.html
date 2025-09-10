@@ -44,6 +44,11 @@
   .user .bubble{background:var(--user); color:#fff;}
 
   .flag{font-size:14px;} /* flag in bot messages */
+  .typing .dot{ animation: blink 1.2s infinite ease-in-out; opacity:0.25;}
+  .typing .dot:nth-child(1){ animation-delay:0s }
+  .typing .dot:nth-child(2){ animation-delay:0.2s }
+  .typing .dot:nth-child(3){ animation-delay:0.4s }
+  @keyframes blink { 0%,80%,100%{opacity:0.25;} 40%{opacity:1;} }
 
   #suggestions{display:flex; flex-wrap:wrap; gap:8px; padding:8px 18px 0 18px;}
   #suggestions button{background:var(--chip); border:1px solid var(--chip-border); padding:7px 12px; border-radius:999px; cursor:pointer;}
@@ -147,11 +152,39 @@
     });
   }
 
+  // Typing + filler
+  let typingEl=null;
+  let fillerTimeout=null;
+
+  function showTyping(){
+    if(typingEl) return;
+    typingEl=document.createElement("div");
+    typingEl.className="row bot typing";
+    typingEl.innerHTML=`<div class="bubble">Kai is typing <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>`;
+    chatBox.appendChild(typingEl);
+    chatBox.scrollTop=chatBox.scrollHeight;
+
+    // After 5s show filler
+    fillerTimeout=setTimeout(()=>{
+      if(typingEl){
+        typingEl.querySelector(".bubble").textContent="⏳ Still checking, please hold…";
+      }
+    },5000);
+  }
+
+  function hideTyping(){
+    if(typingEl){ typingEl.remove(); typingEl=null; }
+    if(fillerTimeout){ clearTimeout(fillerTimeout); fillerTimeout=null; }
+  }
+
   async function sendMessage(textOverride=null){
     const text=textOverride!==null?textOverride:input.value.trim();
     if(!text && textOverride===null) return;
     if(text) addMessage(text,"user");
     input.value=""; input.focus();
+
+    // show typing right away
+    showTyping();
 
     try{
       const res=await fetch(API_URL+"?session_id="+SESSION_ID,{
@@ -160,6 +193,9 @@
         body:JSON.stringify({message:text, language:langSelect.value})
       });
       const data=await res.json();
+
+      hideTyping();
+
       if(data.reply) addMessage(data.reply,"bot",data.language||langSelect.value);
       renderSuggestions(data.suggest||[]);
       if(data.language){
@@ -168,6 +204,7 @@
         updateCurrentLang(data.language);
       }
     }catch(e){
+      hideTyping();
       addMessage("⚠️ Could not reach server.","bot");
     }
   }
