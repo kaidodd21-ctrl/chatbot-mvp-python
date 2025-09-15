@@ -42,14 +42,14 @@ def get_session(session_id: Optional[str]) -> str:
                 "name": None,
                 "contact": None,
             },
-            "history": []  # new: stores last N messages
+            "history": []  # conversation memory
         }
     return session_id
 
 def remember(session: Dict, user_msg: str, bot_reply: str):
     """Store message pairs into session history"""
     session["history"].append((user_msg, bot_reply))
-    if len(session["history"]) > 10:  # keep short-term memory
+    if len(session["history"]) > 10:  # keep last 10 turns
         session["history"] = session["history"][-10:]
 
 def recall(session: Dict, keyword: str) -> Optional[str]:
@@ -57,6 +57,14 @@ def recall(session: Dict, keyword: str) -> Optional[str]:
     for user_msg, bot_reply in reversed(session["history"]):
         if keyword in user_msg.lower():
             return bot_reply
+    return None
+
+def extract_name(message: str) -> Optional[str]:
+    msg = message.lower()
+    if msg.startswith("i am ") or msg.startswith("i’m "):
+        return message.split(" ", 2)[-1].strip().title()
+    if msg.startswith("my name is "):
+        return message.split("my name is ", 1)[1].strip().title()
     return None
 
 # -----------------------------
@@ -99,7 +107,7 @@ def handle_booking(session: Dict, message: str) -> ChatResponse:
     return ChatResponse(reply=reply, suggestions=["Cancel booking", "Make another booking"], session_id=session["id"])
 
 # -----------------------------
-# Smalltalk with Memory
+# Smalltalk with Memory + Name
 # -----------------------------
 def handle_smalltalk(message: str, session: Dict) -> Optional[ChatResponse]:
     msg = message.lower()
@@ -114,8 +122,13 @@ def handle_smalltalk(message: str, session: Dict) -> Optional[ChatResponse]:
         "hungry": ["I can’t cook 🍔 but I can schedule your pampering.", "Food is life 😋 but I’m here for bookings."],
     }
 
+    # Greeting
     if any(w in msg for w in ["hi", "hello", "hey", "yo"]):
-        reply = random.choice(responses["greeting"])
+        name = session["slots"].get("name")
+        if name:
+            reply = f"Hey {name} 👋 great to see you again!"
+        else:
+            reply = random.choice(responses["greeting"])
         return ChatResponse(reply=reply, suggestions=["Make a booking", "Opening hours"], session_id=sid)
 
     if "how are you" in msg:
@@ -138,7 +151,7 @@ def handle_smalltalk(message: str, session: Dict) -> Optional[ChatResponse]:
         reply = random.choice(responses["hungry"])
         return ChatResponse(reply=reply, suggestions=["Any food recommendations?", "Make a booking"], session_id=sid)
 
-    # Recall feature: if user asks "what did I say"
+    # Recall
     if "what did i say" in msg or "remind me" in msg:
         if session["history"]:
             last_user, _ = session["history"][-1]
@@ -158,6 +171,15 @@ def chat(payload: ChatRequest):
     session = sessions[session_id]
     session["id"] = session_id
     message = payload.message.strip()
+
+    # Detect name introduction
+    possible_name = extract_name(message)
+    if possible_name:
+        session["slots"]["name"] = possible_name
+        reply = f"Nice to meet you, {possible_name} 😃"
+        response = ChatResponse(reply=reply, suggestions=["Make a booking", "Opening hours"], session_id=session_id)
+        remember(session, message, reply)
+        return response
 
     # Booking intent
     if "book" in message.lower():
@@ -204,7 +226,13 @@ def chat(payload: ChatRequest):
         remember(session, message, reply)
         return response
 
-    reply = "That’s interesting 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?"
+    # Default fallback (personalized with name if available)
+    name = session["slots"].get("name")
+    if name:
+        reply = f"That’s interesting, {name} 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?"
+    else:
+        reply = "That’s interesting 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?"
+
     response = ChatResponse(reply=reply, suggestions=["Make a booking", "Opening hours", "Contact details"], session_id=session_id)
     remember(session, message, reply)
     return response
@@ -214,4 +242,4 @@ def chat(payload: ChatRequest):
 # -----------------------------
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "Kai Virtual Assistant backend (V7.2 with memory)"}
+    return {"status": "ok", "message": "Kai Virtual Assistant backend (V7.3-lite with name memory)"}
