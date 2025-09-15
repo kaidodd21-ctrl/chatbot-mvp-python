@@ -41,9 +41,23 @@ def get_session(session_id: Optional[str]) -> str:
                 "datetime": None,
                 "name": None,
                 "contact": None,
-            }
+            },
+            "history": []  # new: stores last N messages
         }
     return session_id
+
+def remember(session: Dict, user_msg: str, bot_reply: str):
+    """Store message pairs into session history"""
+    session["history"].append((user_msg, bot_reply))
+    if len(session["history"]) > 10:  # keep short-term memory
+        session["history"] = session["history"][-10:]
+
+def recall(session: Dict, keyword: str) -> Optional[str]:
+    """Check if keyword appeared in history"""
+    for user_msg, bot_reply in reversed(session["history"]):
+        if keyword in user_msg.lower():
+            return bot_reply
+    return None
 
 # -----------------------------
 # Booking Flow
@@ -59,49 +73,37 @@ def handle_booking(session: Dict, message: str) -> ChatResponse:
         elif "nail" in message.lower():
             slots["service"] = "Nails"
         else:
-            return ChatResponse(
-                reply="Sure 👍 what service would you like to book?",
-                suggestions=["Haircut", "Massage", "Nails"],
-                session_id=session["id"]
-            )
+            reply = "Sure 👍 what service would you like to book?"
+            return ChatResponse(reply=reply, suggestions=["Haircut", "Massage", "Nails"], session_id=session["id"])
 
     if not slots["datetime"]:
         if any(x in message.lower() for x in ["tomorrow", "friday", "saturday", "asap", "next"]):
             slots["datetime"] = message
         else:
-            return ChatResponse(
-                reply="When would you like your appointment?",
-                suggestions=["Tomorrow 3pm", "Friday 11am", "Saturday 2pm"],
-                session_id=session["id"]
-            )
+            reply = "When would you like your appointment?"
+            return ChatResponse(reply=reply, suggestions=["Tomorrow 3pm", "Friday 11am", "Saturday 2pm"], session_id=session["id"])
 
     if not slots["name"]:
         slots["name"] = message
-        return ChatResponse(
-            reply="Got it 👍 What’s your name?",
-            session_id=session["id"]
-        )
+        reply = "Got it 👍 What’s your name?"
+        return ChatResponse(reply=reply, session_id=session["id"])
 
     if not slots["contact"]:
         if "@" in message or any(ch.isdigit() for ch in message):
             slots["contact"] = message
         else:
-            return ChatResponse(
-                reply="And finally, could you share your phone or email for confirmation?",
-                session_id=session["id"]
-            )
+            reply = "And finally, could you share your phone or email for confirmation?"
+            return ChatResponse(reply=reply, session_id=session["id"])
 
-    return ChatResponse(
-        reply=f"Perfect ✅ I’ve booked your {slots['service']} on {slots['datetime']} for {slots['name']}. Confirmation will be sent to {slots['contact']}.",
-        suggestions=["Cancel booking", "Make another booking"],
-        session_id=session["id"]
-    )
+    reply = f"Perfect ✅ I’ve booked your {slots['service']} on {slots['datetime']} for {slots['name']}. Confirmation will be sent to {slots['contact']}."
+    return ChatResponse(reply=reply, suggestions=["Cancel booking", "Make another booking"], session_id=session["id"])
 
 # -----------------------------
-# Smalltalk / Smart Suggestions
+# Smalltalk with Memory
 # -----------------------------
-def handle_smalltalk(message: str, session_id: str) -> Optional[ChatResponse]:
+def handle_smalltalk(message: str, session: Dict) -> Optional[ChatResponse]:
     msg = message.lower()
+    sid = session["id"]
 
     responses = {
         "greeting": ["Hey there 👋", "Hiya 🙌", "Yo, what’s up? 😎"],
@@ -113,46 +115,37 @@ def handle_smalltalk(message: str, session_id: str) -> Optional[ChatResponse]:
     }
 
     if any(w in msg for w in ["hi", "hello", "hey", "yo"]):
-        return ChatResponse(
-            reply=random.choice(responses["greeting"]),
-            suggestions=["Make a booking", "Opening hours"],
-            session_id=session_id
-        )
+        reply = random.choice(responses["greeting"])
+        return ChatResponse(reply=reply, suggestions=["Make a booking", "Opening hours"], session_id=sid)
 
     if "how are you" in msg:
-        return ChatResponse(
-            reply=random.choice(responses["how_are_you"]),
-            suggestions=["Good 👍", "Not bad", "Could be better"],
-            session_id=session_id
-        )
+        reply = random.choice(responses["how_are_you"])
+        return ChatResponse(reply=reply, suggestions=["Good 👍", "Not bad", "Could be better"], session_id=sid)
 
     if "thank" in msg:
-        return ChatResponse(
-            reply=random.choice(responses["thanks"]),
-            suggestions=["Make a booking", "Contact details"],
-            session_id=session_id
-        )
+        reply = random.choice(responses["thanks"])
+        return ChatResponse(reply=reply, suggestions=["Make a booking", "Contact details"], session_id=sid)
 
     if any(w in msg for w in ["bye", "goodbye", "later", "see ya"]):
-        return ChatResponse(
-            reply=random.choice(responses["bye"]),
-            suggestions=["Restart chat", "Contact details"],
-            session_id=session_id
-        )
+        reply = random.choice(responses["bye"])
+        return ChatResponse(reply=reply, suggestions=["Restart chat", "Contact details"], session_id=sid)
 
     if "joke" in msg:
-        return ChatResponse(
-            reply=random.choice(responses["joke"]),
-            suggestions=["Tell me another joke", "Back to booking"],
-            session_id=session_id
-        )
+        reply = random.choice(responses["joke"])
+        return ChatResponse(reply=reply, suggestions=["Tell me another joke", "Back to booking"], session_id=sid)
 
     if "hungry" in msg or "food" in msg:
-        return ChatResponse(
-            reply=random.choice(responses["hungry"]),
-            suggestions=["Any food recommendations?", "Make a booking"],
-            session_id=session_id
-        )
+        reply = random.choice(responses["hungry"])
+        return ChatResponse(reply=reply, suggestions=["Any food recommendations?", "Make a booking"], session_id=sid)
+
+    # Recall feature: if user asks "what did I say"
+    if "what did i say" in msg or "remind me" in msg:
+        if session["history"]:
+            last_user, _ = session["history"][-1]
+            reply = f"Earlier you said: '{last_user}' 🤔"
+        else:
+            reply = "I don’t recall anything yet 🤷"
+        return ChatResponse(reply=reply, suggestions=["Make a booking"], session_id=sid)
 
     return None
 
@@ -169,48 +162,56 @@ def chat(payload: ChatRequest):
     # Booking intent
     if "book" in message.lower():
         session["last_intent"] = "booking"
-        return handle_booking(session, message)
+        response = handle_booking(session, message)
+        remember(session, message, response.reply)
+        return response
 
     if "opening" in message.lower():
-        return ChatResponse(
-            reply="We’re open Mon–Sat, 9am–6pm ⏰",
-            suggestions=["Make a booking", "Contact details"],
-            session_id=session_id
-        )
+        reply = "We’re open Mon–Sat, 9am–6pm ⏰"
+        response = ChatResponse(reply=reply, suggestions=["Make a booking", "Contact details"], session_id=session_id)
+        remember(session, message, reply)
+        return response
 
     if "contact" in message.lower():
-        return ChatResponse(
-            reply="You can reach us at 📞 01234 567890 or ✉️ hello@example.com",
-            suggestions=["Make a booking", "Opening hours"],
-            session_id=session_id
-        )
+        reply = "You can reach us at 📞 01234 567890 or ✉️ hello@example.com"
+        response = ChatResponse(reply=reply, suggestions=["Make a booking", "Opening hours"], session_id=session_id)
+        remember(session, message, reply)
+        return response
 
     if "cancel" in message.lower():
-        return ChatResponse(
-            reply="Okay, I’ve cancelled your booking ✅",
-            suggestions=["Make a new booking", "Contact support"],
-            session_id=session_id
-        )
+        reply = "Okay, I’ve cancelled your booking ✅"
+        response = ChatResponse(reply=reply, suggestions=["Make a new booking", "Contact support"], session_id=session_id)
+        remember(session, message, reply)
+        return response
 
     # Smalltalk
-    smalltalk = handle_smalltalk(message, session_id)
+    smalltalk = handle_smalltalk(message, session)
     if smalltalk:
+        remember(session, message, smalltalk.reply)
         return smalltalk
 
     # Continue booking if already in flow
     if session["last_intent"] == "booking":
-        return handle_booking(session, message)
+        response = handle_booking(session, message)
+        remember(session, message, response.reply)
+        return response
 
-    # Fallback
-    return ChatResponse(
-        reply="That’s interesting 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?",
-        suggestions=["Make a booking", "Opening hours", "Contact details"],
-        session_id=session_id
-    )
+    # Memory-enhanced fallback
+    past_hungry = recall(session, "hungry")
+    if past_hungry:
+        reply = f"You mentioned being hungry earlier 🍔. Want to get back to that, or should we book something?"
+        response = ChatResponse(reply=reply, suggestions=["Food chat", "Make a booking"], session_id=session_id)
+        remember(session, message, reply)
+        return response
+
+    reply = "That’s interesting 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?"
+    response = ChatResponse(reply=reply, suggestions=["Make a booking", "Opening hours", "Contact details"], session_id=session_id)
+    remember(session, message, reply)
+    return response
 
 # -----------------------------
 # Root
 # -----------------------------
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "Kai Virtual Assistant backend (V7.1)"}
+    return {"status": "ok", "message": "Kai Virtual Assistant backend (V7.2 with memory)"}
