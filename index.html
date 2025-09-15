@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Kai • Virtual Assistant</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
   <div id="chat-container">
     <header>
       <h2>Kai • Virtual Assistant</h2>
-      <div class="status">🟢 Online now</div>
+      <div id="status" class="status checking"><span class="dot"></span> Checking...</div>
       <button onclick="restartChat()">⟳ Restart</button>
     </header>
 
@@ -23,7 +23,34 @@
   </div>
 
   <script>
-  const BACKEND_URL = "http://127.0.0.1:8000/chat"; // replace with Render URL after deploy
+  const BACKEND_URL = "https://your-render-url.onrender.com/chat"; // replace with live backend
+  let sessionId = null;
+
+  function setStatus(state, text) {
+    const statusEl = document.getElementById("status");
+    statusEl.className = `status ${state}`;
+    statusEl.innerHTML = `<span class="dot"></span> ${text}`;
+  }
+
+  async function checkBackend() {
+    setStatus("checking", "Checking...");
+    try {
+      const res = await fetch(BACKEND_URL.replace("/chat", "/health"));
+      if (res.ok) {
+        setStatus("online", "Online");
+      } else {
+        setStatus("offline", "Offline");
+      }
+    } catch {
+      setStatus("offline", "Offline");
+    }
+  }
+
+  setInterval(checkBackend, 15000); // every 15s
+  window.onload = () => {
+    checkBackend();
+    restartChat();
+  };
 
   function addUserMessage(text) {
     const chatBox = document.getElementById("chat-box");
@@ -39,11 +66,10 @@
 
     chatBox.appendChild(msgWrapper);
     chatBox.scrollTop = chatBox.scrollHeight;
-
     return document.getElementById(statusId);
   }
 
-  function addBotMessage(text, suggestions = []) {
+  function addBotMessage(text) {
     const chatBox = document.getElementById("chat-box");
     const msgWrapper = document.createElement("div");
     msgWrapper.className = "message bot";
@@ -52,19 +78,23 @@
       <div class="bubble">${text}</div>
     `;
     chatBox.appendChild(msgWrapper);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
 
-    if (suggestions.length > 0) {
-      const suggBox = document.createElement("div");
-      suggBox.className = "suggestions";
-      suggestions.forEach(s => {
-        const btn = document.createElement("button");
-        btn.innerText = s;
-        btn.onclick = () => sendMessage(s);
-        suggBox.appendChild(btn);
-      });
-      chatBox.appendChild(suggBox);
-    }
+  function addSuggestions(suggestions) {
+    const chatBox = document.getElementById("chat-box");
+    const suggBox = document.createElement("div");
+    suggBox.className = "suggestions";
 
+    suggestions.forEach((s, i) => {
+      const btn = document.createElement("button");
+      btn.innerText = s;
+      btn.onclick = () => sendMessage(s);
+      btn.style.animationDelay = `${0.1 + i * 0.15}s`;
+      suggBox.appendChild(btn);
+    });
+
+    chatBox.appendChild(suggBox);
     chatBox.scrollTop = chatBox.scrollHeight;
   }
 
@@ -90,22 +120,32 @@
   async function sendMessage(text) {
     const statusEl = addUserMessage(text);
     document.getElementById("user-input").value = "";
-
     showTyping();
 
-    const res = await fetch(BACKEND_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text })
-    });
-    const data = await res.json();
+    try {
+      const res = await fetch(BACKEND_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, session_id: sessionId })
+      });
 
-    // Simulated typing delay
-    setTimeout(() => {
+      const data = await res.json();
+      sessionId = data.session_id;
+
+      setTimeout(() => {
+        hideTyping();
+        addBotMessage(data.reply);
+
+        if (data.suggestions.length > 0) {
+          setTimeout(() => addSuggestions(data.suggestions), 400);
+        }
+        statusEl.innerText = "✓✓ Read";
+      }, Math.floor(Math.random() * 1000) + 500);
+    } catch (error) {
       hideTyping();
-      addBotMessage(data.reply, data.suggestions);
-      statusEl.innerText = "✓✓ Read";
-    }, Math.floor(Math.random() * 1000) + 500);
+      addBotMessage("⚠️ Oops, I couldn’t connect to the server. Please try again.");
+      statusEl.innerText = "Failed";
+    }
   }
 
   function handleSend() {
@@ -115,13 +155,10 @@
 
   function restartChat() {
     document.getElementById("chat-box").innerHTML = "";
-    addBotMessage(
-      "Hi 👋 I’m Kai, your assistant. How can I help today?",
-      ["Make a booking", "Opening hours", "Contact details"]
-    );
+    sessionId = null;
+    addBotMessage("Hi 👋 I’m Kai, your assistant. How can I help today?");
+    setTimeout(() => addSuggestions(["Make a booking", "Opening hours", "Contact details"]), 400);
   }
-
-  window.onload = restartChat;
   </script>
 </body>
 </html>
