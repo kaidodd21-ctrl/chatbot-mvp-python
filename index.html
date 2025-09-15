@@ -17,13 +17,18 @@
     <div id="chat-box"></div>
 
     <div id="input-container">
-      <input id="user-input" type="text" placeholder="Type a message..." />
+      <input id="user-input" type="text" placeholder="Type a message..." onkeydown="if(event.key==='Enter'){handleSend()}" />
       <button onclick="handleSend()">Send</button>
     </div>
   </div>
 
   <script>
-  const BACKEND_URL = "https://your-render-url.onrender.com/chat"; // Replace with Render backend
+  // ------------------------------
+  // Configure this for Render
+  // ------------------------------
+  const API_BASE = "https://your-render-url.onrender.com"; // <- set me
+  const BACKEND_URL = API_BASE + "/chat";
+
   let sessionId = null;
 
   // ------------------------------
@@ -38,14 +43,14 @@
   async function checkBackend() {
     setStatus("checking", "Checking...");
     try {
-      const res = await fetch(BACKEND_URL.replace("/chat", "/health"));
+      const res = await fetch(API_BASE + "/health");
       if (res.ok) {
-        setStatus("online", "Online");
+        setStatus("online", "Connected ✅");
       } else {
-        setStatus("offline", "Offline");
+        setStatus("offline", "Disconnected ❌");
       }
     } catch {
-      setStatus("offline", "Offline");
+      setStatus("offline", "Disconnected ❌");
     }
   }
 
@@ -66,7 +71,7 @@
 
     msgWrapper.innerHTML = `
       <div class="avatar"></div>
-      <div class="bubble">${text}</div>
+      <div class="bubble">${escapeHtml(text)}</div>
       <div class="status" id="${statusId}">✓ Sent</div>
     `;
 
@@ -81,7 +86,7 @@
     msgWrapper.className = "message bot";
     msgWrapper.innerHTML = `
       <div class="avatar"></div>
-      <div class="bubble">${text}</div>
+      <div class="bubble">${renderMarkdownish(text)}</div>
     `;
     chatBox.appendChild(msgWrapper);
     chatBox.scrollTop = chatBox.scrollHeight;
@@ -128,6 +133,9 @@
   // ------------------------------
   async function sendMessage(text) {
     const statusEl = addUserMessage(text);
+    // upgrade status to delivered/seen later
+    setTimeout(() => statusEl.innerText = "✓✓ Delivered", 250);
+
     document.getElementById("user-input").value = "";
     showTyping();
 
@@ -145,11 +153,11 @@
         hideTyping();
         addBotMessage(data.reply);
 
-        if (data.suggestions.length > 0) {
+        if (data.suggestions && data.suggestions.length > 0) {
           setTimeout(() => addSuggestions(data.suggestions), 400);
         }
         statusEl.innerText = "✓✓ Read";
-      }, Math.floor(Math.random() * 1000) + 500); // random delay for realism
+      }, Math.floor(Math.random() * 1000) + 500);
     } catch (error) {
       hideTyping();
       addBotMessage("⚠️ Oops, I couldn’t connect to the server. Please try again.");
@@ -167,6 +175,19 @@
     sessionId = null;
     addBotMessage("Hi 👋 I’m Kai, your assistant. How can I help today?");
     setTimeout(() => addSuggestions(["Make a booking", "Opening hours", "Contact details"]), 400);
+  }
+
+  // ------------------------------
+  // Small helpers
+  // ------------------------------
+  function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, (m) => ({
+      "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+    }[m]));
+  }
+  function renderMarkdownish(str) {
+    // super-light **bold** renderer used for payment text
+    return escapeHtml(str).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\n/g,"<br/>");
   }
   </script>
 </body>

@@ -45,6 +45,8 @@ header {
   font-size: 14px;
 }
 
+#input-container input:focus { outline: none; }
+
 #input-container button {
   background: #075e54;
   color: #fff;
@@ -91,6 +93,7 @@ header {
   padding: 8px 12px;
   border-radius: 12px;
   max-width: 70%;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
 }
 
 .user .bubble {

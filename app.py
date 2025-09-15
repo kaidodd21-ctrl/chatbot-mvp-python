@@ -2,9 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Optional
-import uuid, random, re, subprocess
+import uuid, random, re, subprocess, datetime
 from rapidfuzz import fuzz, process
 import spacy
+from dateutil import parser as dtparser
 
 # -----------------------------
 # Auto-download spaCy model if missing
@@ -24,6 +25,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# -----------------------------
+# Business Profile (multi-biz ready)
+# -----------------------------
+BUSINESS = {
+    "name": "Kai Demo Salon",
+    "hours_text": "Mon–Sat, 9am–6pm",
+    "contact_phone": "01234 567890",
+    "contact_email": "hello@example.com",
+    # Services are used for suggestions + service detection
+    "services": ["Haircut", "Massage", "Nails"],
+    # Later you can map service -> duration/price
+}
 
 # -----------------------------
 # Data Models
@@ -53,7 +67,8 @@ def get_session(session_id: Optional[str]) -> str:
                 "name": None,
                 "contact": None,
             },
-            "history": []
+            "history": [],
+            "bookings": []  # simple in-mem log for this session
         }
     return session_id
 
@@ -102,46 +117,137 @@ def fuzzy_name(name: str) -> str:
     return name
 
 # -----------------------------
-# Booking Flow
+# Date/Time Helpers (lightweight)
+# -----------------------------
+WEEKDAYS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
+
+def parse_datetime_text(text: str) -> Optional[str]:
+    """
+    Returns a normalized readable datetime string or None.
+    Handles simple terms: 'today', 'tomorrow', weekdays, or free-form like 'Fri 3pm', '2025-09-20 14:00'.
+    """
+    t = text.lower()
+
+    now = datetime.datetime.now()
+    # Simple keywords
+    if "today" in t:
+        return now.strftime("today at %I:%M %p")
+    if "tomorrow" in t:
+        target = now + datetime.timedelta(days=1)
+        return target.strftime("tomorrow at %I:%M %p")
+
+    # Weekday like "friday 11am"
+    for i, wd in enumerate(WEEKDAYS):
+        if wd in t:
+            # find next wd (including this week)
+            days_ahead = (i - now.weekday()) % 7
+            if days_ahead == 0:
+                days_ahead = 7
+            target = now + datetime.timedelta(days=days_ahead)
+            # try extracting a time with dateutil; if none, default to 11:00
+            try:
+                dt = dtparser.parse(text, fuzzy=True, default=target.replace(hour=11, minute=0, second=0, microsecond=0))
+                return dt.strftime("%A %d %b, %I:%M %p")
+            except Exception:
+                return target.replace(hour=11, minute=0).strftime("%A %d %b, %I:%M %p")
+
+    # Free-form parse attempt (e.g., "Fri 3pm", "20 Sept 14:00")
+    try:
+        dt = dtparser.parse(text, fuzzy=True)
+        return dt.strftime("%a %d %b, %I:%M %p")
+    except Exception:
+        return None
+
+def detect_service(text: str) -> Optional[str]:
+    t = text.lower()
+    for s in BUSINESS["services"]:
+        if s.lower().split()[0] in t or s.lower() in t:
+            return s
+    return None
+
+# -----------------------------
+# Payment Stub (placeholder)
+# -----------------------------
+def make_payment_link(session_id: str) -> str:
+    # Replace this later with a real Stripe/Checkout URL
+    tail = session_id.split("-")[0]
+    return f"https://example-payments.test/checkout/{tail}"
+
+# -----------------------------
+# Booking Flow (preserves existing logic; adds parsing/validation)
 # -----------------------------
 def handle_booking(session: Dict, message: str) -> ChatResponse:
     slots = session["slots"]
+    sid = session["id"]
 
+    # 1) Service
     if not slots["service"]:
-        if "hair" in message.lower():
-            slots["service"] = "Haircut"
-        elif "massage" in message.lower():
-            slots["service"] = "Massage"
-        elif "nail" in message.lower():
-            slots["service"] = "Nails"
+        maybe = detect_service(message)
+        if maybe:
+            slots["service"] = maybe
         else:
-            reply = "Sure 👍 what service would you like to book?"
-            return ChatResponse(reply=reply, suggestions=["Haircut", "Massage", "Nails"], session_id=session["id"])
+            reply = f"Sure 👍 what service would you like to book at {BUSINESS['name']}?"
+            return ChatResponse(reply=reply, suggestions=BUSINESS["services"], session_id=sid)
 
+    # 2) Datetime
     if not slots["datetime"]:
-        if any(x in message.lower() for x in ["tomorrow", "friday", "saturday", "asap", "next"]):
-            slots["datetime"] = message
+        guessed = parse_datetime_text(message)
+        if guessed:
+            slots["datetime"] = guessed
         else:
             reply = "When would you like your appointment?"
-            return ChatResponse(reply=reply, suggestions=["Tomorrow 3pm", "Friday 11am", "Saturday 2pm"], session_id=session["id"])
+            return ChatResponse(
+                reply=reply,
+                suggestions=["Tomorrow 3pm", "Friday 11am", "Saturday 2pm"],
+                session_id=sid
+            )
 
+    # 3) Name
     if not slots["name"]:
-        slots["name"] = message
-        reply = "Got it 👍 What’s your name?"
-        return ChatResponse(reply=reply, session_id=session["id"])
+        # Try extraction one more time from this message
+        nm = extract_name(message)
+        if nm:
+            slots["name"] = nm
+        else:
+            reply = "Got it 👍 What’s your name?"
+            return ChatResponse(reply=reply, session_id=sid)
 
+    # 4) Contact
     if not slots["contact"]:
-        if "@" in message or any(ch.isdigit() for ch in message):
-            slots["contact"] = message
+        # very light validation
+        text = message.strip()
+        looks_email = "@" in text and "." in text
+        looks_phone = any(ch.isdigit() for ch in text) and len(re.sub(r"\D", "", text)) >= 7
+        if looks_email or looks_phone:
+            slots["contact"] = text
         else:
             reply = "And finally, could you share your phone or email for confirmation?"
-            return ChatResponse(reply=reply, session_id=session["id"])
+            return ChatResponse(reply=reply, session_id=sid)
 
-    reply = f"Perfect ✅ I’ve booked your {slots['service']} on {slots['datetime']} for {slots['name']}. Confirmation will be sent to {slots['contact']}."
-    return ChatResponse(reply=reply, suggestions=["Cancel booking", "Make another booking"], session_id=session["id"])
+    # All slots present → "confirm" the booking (in-memory)
+    booking = {
+        "service": slots["service"],
+        "datetime": slots["datetime"],
+        "name": slots["name"],
+        "contact": slots["contact"],
+        "created_at": datetime.datetime.now().isoformat()
+    }
+    session["bookings"].append(booking)
+
+    pay_url = make_payment_link(sid)
+    reply = (
+        f"Perfect ✅ I’ve pencilled your **{slots['service']}** on **{slots['datetime']}** for **{slots['name']}**.\n"
+        f"Confirmation will be sent to **{slots['contact']}**.\n\n"
+        f"To secure the slot, tap **Pay now** to complete checkout."
+    )
+    return ChatResponse(
+        reply=reply,
+        suggestions=["Pay now", "Change time", "Make another booking"],
+        session_id=sid
+    )
 
 # -----------------------------
-# Smalltalk
+# Smalltalk (unchanged content, uses business details where helpful)
 # -----------------------------
 def handle_smalltalk(message: str, session: Dict) -> Optional[ChatResponse]:
     msg = message.lower().strip()
@@ -153,7 +259,7 @@ def handle_smalltalk(message: str, session: Dict) -> Optional[ChatResponse]:
         "thanks": ["Anytime 🙌", "You’re very welcome!", "No worries 👍"],
         "bye": ["Catch you later 👋", "Bye! Take care 😊", "See ya soon 🚀"],
         "joke": ["😂 Why don’t skeletons fight? They don’t have the guts!", "🤣 I tried to book a haircut… but couldn’t make the cut!"],
-        "hungry": ["I can’t cook 🍔 but I can schedule your pampering.", "Food is life 😋 but I’m here for bookings."],
+        "hungry": ["I can’t cook 🍔 but I can schedule your pampering.", "Food is life 😋 but I’m here for bookings."]
     }
 
     if any(w in msg for w in ["hi", "hello", "hey", "yo"]):
@@ -193,6 +299,15 @@ def chat(payload: ChatRequest):
     session["id"] = session_id
     message = payload.message.strip()
 
+    # Special: "Pay now" button → return stub link
+    if message.lower() in ["pay now", "pay", "checkout"]:
+        url = make_payment_link(session_id)
+        reply = f"Here’s your secure checkout link: {url}\n\nOnce paid, you’ll receive a confirmation by email/SMS."
+        response = ChatResponse(reply=reply, suggestions=["Make another booking", "Contact support"], session_id=session_id)
+        remember(session, message, reply)
+        return response
+
+    # Update name if found (keeps original behavior)
     possible_name = extract_name(message)
     if possible_name:
         session["slots"]["name"] = possible_name
@@ -201,35 +316,41 @@ def chat(payload: ChatRequest):
         remember(session, message, reply)
         return response
 
+    # Booking intent (keeps original trigger)
     if session["last_intent"] == "booking" or "book" in message.lower():
         session["last_intent"] = "booking"
         response = handle_booking(session, message)
         remember(session, message, response.reply)
         return response
 
-    if "opening" in message.lower():
-        reply = "We’re open Mon–Sat, 9am–6pm ⏰"
+    # Opening hours / contact (uses business profile)
+    if "opening" in message.lower() or "hours" in message.lower():
+        reply = f"We’re open {BUSINESS['hours_text']} ⏰"
         response = ChatResponse(reply=reply, suggestions=["Make a booking", "Contact details"], session_id=session_id)
         remember(session, message, reply)
         return response
 
-    if "contact" in message.lower():
-        reply = "You can reach us at 📞 01234 567890 or ✉️ hello@example.com"
+    if "contact" in message.lower() or "phone" in message.lower() or "email" in message.lower():
+        reply = f"You can reach us at 📞 {BUSINESS['contact_phone']} or ✉️ {BUSINESS['contact_email']}"
         response = ChatResponse(reply=reply, suggestions=["Make a booking", "Opening hours"], session_id=session_id)
         remember(session, message, reply)
         return response
 
     if "cancel" in message.lower():
-        reply = "Okay, I’ve cancelled your booking ✅"
+        # simple cancel: clear slots (preserve history)
+        session["slots"] = {"service": None, "datetime": None, "name": session["slots"].get("name"), "contact": None}
+        reply = "Okay, I’ve cancelled your booking details here ✅"
         response = ChatResponse(reply=reply, suggestions=["Make a new booking", "Contact support"], session_id=session_id)
         remember(session, message, reply)
         return response
 
+    # Smalltalk
     smalltalk = handle_smalltalk(message, session)
     if smalltalk:
         remember(session, message, smalltalk.reply)
         return smalltalk
 
+    # Default fallback (personalized if name known)
     name = session["slots"].get("name")
     reply = (
         f"That’s interesting, {name} 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?"
@@ -237,7 +358,11 @@ def chat(payload: ChatRequest):
         "That’s interesting 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?"
     )
 
-    response = ChatResponse(reply=reply, suggestions=["Make a booking", "Opening hours", "Contact details"], session_id=session_id)
+    response = ChatResponse(
+        reply=reply,
+        suggestions=["Make a booking", "Opening hours", "Contact details"],
+        session_id=session_id
+    )
     remember(session, message, reply)
     return response
 
@@ -253,4 +378,7 @@ def health():
 # -----------------------------
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "Kai Virtual Assistant backend (V7.4 with pulsing status dot)"}
+    return {
+        "status": "ok",
+        "message": "Kai Virtual Assistant backend (V8.0: business profile + payment stub + improved datetime)"
+    }

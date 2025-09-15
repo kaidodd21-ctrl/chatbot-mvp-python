@@ -1,10 +1,15 @@
 services:
   - type: web
-    name: chatbot-mvp
+    name: kai-booking-bot
     env: python
     plan: free
-    buildCommand: pip install --upgrade pip && pip install -r requirements.txt && python -m spacy download en_core_web_sm
+    region: frankfurt
+    buildCommand: |
+      pip install -r requirements.txt
+      python -m spacy download en_core_web_sm
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11
+      - key: PYTHONUNBUFFERED
+        value: "1"
