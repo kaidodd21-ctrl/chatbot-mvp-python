@@ -2,7 +2,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Optional
-import uuid, random
+import uuid, random, re
+from rapidfuzz import fuzz, process
+import spacy, subprocess
+
+# -----------------------------
+# Auto-download spaCy model if missing
+# -----------------------------
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
+    nlp = spacy.load("en_core_web_sm")
 
 app = FastAPI()
 
@@ -42,30 +53,56 @@ def get_session(session_id: Optional[str]) -> str:
                 "name": None,
                 "contact": None,
             },
-            "history": []  # conversation memory
+            "history": []
         }
     return session_id
 
 def remember(session: Dict, user_msg: str, bot_reply: str):
-    """Store message pairs into session history"""
     session["history"].append((user_msg, bot_reply))
-    if len(session["history"]) > 10:  # keep last 10 turns
+    if len(session["history"]) > 10:
         session["history"] = session["history"][-10:]
 
-def recall(session: Dict, keyword: str) -> Optional[str]:
-    """Check if keyword appeared in history"""
-    for user_msg, bot_reply in reversed(session["history"]):
-        if keyword in user_msg.lower():
-            return bot_reply
-    return None
+# -----------------------------
+# Name Extraction (Hybrid)
+# -----------------------------
+common_names = ["Jake", "John", "Alex", "Kai", "Sarah", "Emma", "Tom", "Michael", "Emily", "Sophia"]
 
 def extract_name(message: str) -> Optional[str]:
-    msg = message.lower()
-    if msg.startswith("i am ") or msg.startswith("i’m "):
-        return message.split(" ", 2)[-1].strip().title()
-    if msg.startswith("my name is "):
-        return message.split("my name is ", 1)[1].strip().title()
+    msg = message.strip()
+
+    # Regex patterns
+    patterns = [
+        r"\b(?:i am|i'm|im)\s+([A-Z][a-z]+)",
+        r"\bmy name is\s+([A-Z][a-z]+)",
+        r"\bthis is\s+([A-Z][a-z]+)",
+        r"\bcall me\s+([A-Z][a-z]+)",
+        r"\bthey call me\s+([A-Z][a-z]+)",
+        r"\bit'?s\s+([A-Z][a-z]+)",
+        r"([A-Z][a-z]+)\s+here"
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, msg, re.IGNORECASE)
+        if match:
+            candidate = match.group(1).title()
+            return fuzzy_name(candidate)
+
+    # Single-word heuristic
+    if len(msg.split()) == 1 and msg[0].isupper():
+        return fuzzy_name(msg.title())
+
+    # NLP fallback
+    doc = nlp(msg)
+    for ent in doc.ents:
+        if ent.label_ == "PERSON":
+            return fuzzy_name(ent.text.title())
+
     return None
+
+def fuzzy_name(name: str) -> str:
+    best, score, _ = process.extractOne(name, common_names, scorer=fuzz.ratio)
+    if score > 80:
+        return best
+    return name
 
 # -----------------------------
 # Booking Flow
@@ -107,10 +144,10 @@ def handle_booking(session: Dict, message: str) -> ChatResponse:
     return ChatResponse(reply=reply, suggestions=["Cancel booking", "Make another booking"], session_id=session["id"])
 
 # -----------------------------
-# Smalltalk with Memory + Name
+# Smalltalk
 # -----------------------------
 def handle_smalltalk(message: str, session: Dict) -> Optional[ChatResponse]:
-    msg = message.lower()
+    msg = message.lower().strip()
     sid = session["id"]
 
     responses = {
@@ -122,7 +159,6 @@ def handle_smalltalk(message: str, session: Dict) -> Optional[ChatResponse]:
         "hungry": ["I can’t cook 🍔 but I can schedule your pampering.", "Food is life 😋 but I’m here for bookings."],
     }
 
-    # Greeting
     if any(w in msg for w in ["hi", "hello", "hey", "yo"]):
         name = session["slots"].get("name")
         if name:
@@ -151,15 +187,6 @@ def handle_smalltalk(message: str, session: Dict) -> Optional[ChatResponse]:
         reply = random.choice(responses["hungry"])
         return ChatResponse(reply=reply, suggestions=["Any food recommendations?", "Make a booking"], session_id=sid)
 
-    # Recall
-    if "what did i say" in msg or "remind me" in msg:
-        if session["history"]:
-            last_user, _ = session["history"][-1]
-            reply = f"Earlier you said: '{last_user}' 🤔"
-        else:
-            reply = "I don’t recall anything yet 🤷"
-        return ChatResponse(reply=reply, suggestions=["Make a booking"], session_id=sid)
-
     return None
 
 # -----------------------------
@@ -172,7 +199,7 @@ def chat(payload: ChatRequest):
     session["id"] = session_id
     message = payload.message.strip()
 
-    # Detect name introduction
+    # Name introduction detection
     possible_name = extract_name(message)
     if possible_name:
         session["slots"]["name"] = possible_name
@@ -181,13 +208,14 @@ def chat(payload: ChatRequest):
         remember(session, message, reply)
         return response
 
-    # Booking intent
-    if "book" in message.lower():
+    # Booking
+    if session["last_intent"] == "booking" or "book" in message.lower():
         session["last_intent"] = "booking"
         response = handle_booking(session, message)
         remember(session, message, response.reply)
         return response
 
+    # Quick intents
     if "opening" in message.lower():
         reply = "We’re open Mon–Sat, 9am–6pm ⏰"
         response = ChatResponse(reply=reply, suggestions=["Make a booking", "Contact details"], session_id=session_id)
@@ -212,21 +240,7 @@ def chat(payload: ChatRequest):
         remember(session, message, smalltalk.reply)
         return smalltalk
 
-    # Continue booking if already in flow
-    if session["last_intent"] == "booking":
-        response = handle_booking(session, message)
-        remember(session, message, response.reply)
-        return response
-
-    # Memory-enhanced fallback
-    past_hungry = recall(session, "hungry")
-    if past_hungry:
-        reply = f"You mentioned being hungry earlier 🍔. Want to get back to that, or should we book something?"
-        response = ChatResponse(reply=reply, suggestions=["Food chat", "Make a booking"], session_id=session_id)
-        remember(session, message, reply)
-        return response
-
-    # Default fallback (personalized with name if available)
+    # Fallback with personalization
     name = session["slots"].get("name")
     if name:
         reply = f"That’s interesting, {name} 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?"
@@ -242,4 +256,4 @@ def chat(payload: ChatRequest):
 # -----------------------------
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "Kai Virtual Assistant backend (V7.3-lite with name memory)"}
+    return {"status": "ok", "message": "Kai Virtual Assistant backend (V7.3.2 with hybrid name recognition + auto-download spaCy)"}
