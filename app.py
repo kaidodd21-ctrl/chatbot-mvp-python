@@ -2,17 +2,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Optional
-import uuid, random, re
+import uuid, random, re, subprocess
 from rapidfuzz import fuzz, process
-import spacy, subprocess
+import spacy
 
-# Try load → fallback to auto-download if missing
+# -----------------------------
+# Auto-download spaCy model if missing
+# -----------------------------
 try:
     nlp = spacy.load("en_core_web_sm")
 except OSError:
     subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
     nlp = spacy.load("en_core_web_sm")
-
 
 app = FastAPI()
 
@@ -58,7 +59,7 @@ def get_session(session_id: Optional[str]) -> str:
 
 def remember(session: Dict, user_msg: str, bot_reply: str):
     session["history"].append((user_msg, bot_reply))
-    if len(session["history"]) > 10:  # keep last 10 turns
+    if len(session["history"]) > 10:
         session["history"] = session["history"][-10:]
 
 # -----------------------------
@@ -77,8 +78,7 @@ def extract_name(message: str) -> Optional[str]:
         r"\bcall me\s+([A-Z][a-z]+)",
         r"\bthey call me\s+([A-Z][a-z]+)",
         r"\bit'?s\s+([A-Z][a-z]+)",
-        r"([A-Z][a-z]+)\s+here",
-        r"([A-Z][a-z]+)\s+speaking"
+        r"([A-Z][a-z]+)\s+here"
     ]
     for pattern in patterns:
         match = re.search(pattern, msg, re.IGNORECASE)
@@ -87,7 +87,7 @@ def extract_name(message: str) -> Optional[str]:
             return fuzzy_name(candidate)
 
     # Single-word heuristic
-    if len(msg.split()) == 1 and msg[0].isalpha():
+    if len(msg.split()) == 1 and msg[0].isupper():
         return fuzzy_name(msg.title())
 
     # NLP fallback
@@ -129,12 +129,9 @@ def handle_booking(session: Dict, message: str) -> ChatResponse:
             return ChatResponse(reply=reply, suggestions=["Tomorrow 3pm", "Friday 11am", "Saturday 2pm"], session_id=session["id"])
 
     if not slots["name"]:
-        possible_name = extract_name(message)
-        if possible_name:
-            slots["name"] = possible_name
-        else:
-            reply = "Got it 👍 What’s your name?"
-            return ChatResponse(reply=reply, session_id=session["id"])
+        slots["name"] = message
+        reply = "Got it 👍 What’s your name?"
+        return ChatResponse(reply=reply, session_id=session["id"])
 
     if not slots["contact"]:
         if "@" in message or any(ch.isdigit() for ch in message):
@@ -254,23 +251,16 @@ def chat(payload: ChatRequest):
     remember(session, message, reply)
     return response
 
+# -----------------------------
+# Health Check Endpoint
+# -----------------------------
 @app.get("/health")
 def health():
-    try:
-        # Quick spaCy test
-        doc = nlp("Hello world")
-        tokens = [token.text for token in doc]
-        return {
-            "status": "ok",
-            "spacy_model": "en_core_web_sm",
-            "tokens": tokens
-        }
-    except Exception as e:
-        return {"status": "error", "details": str(e)}
+    return {"status": "ok"}
 
 # -----------------------------
 # Root
 # -----------------------------
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "Kai Virtual Assistant backend (V7.4 full functionality + robust name detection)"}
+    return {"status": "ok", "message": "Kai Virtual Assistant backend (V7.4 with pulsing status dot)"}
