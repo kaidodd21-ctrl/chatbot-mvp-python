@@ -1,8 +1,7 @@
 services:
   - type: web
-    name: kai-chatbot-backend
+    name: chatbot-backend
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app:app --host=0.0.0.0 --port=10000
-    autoDeploy: true
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app:app --host 0.0.0.0 --port 10000"

@@ -4,12 +4,15 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional
 import uuid, random, re
 from rapidfuzz import fuzz, process
-import spacy
+import spacy, subprocess
 
-# -----------------------------
-# Load spaCy model (preinstalled via requirements.txt)
-# -----------------------------
-nlp = spacy.load("en_core_web_sm")
+# Try load → fallback to auto-download if missing
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
+    nlp = spacy.load("en_core_web_sm")
+
 
 app = FastAPI()
 
