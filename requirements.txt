@@ -1,16 +1,7 @@
-# FastAPI + Pydantic v2 (works well together)
 fastapi==0.115.0
 uvicorn==0.30.1
 pydantic==2.9.2
 
-# NLU / fuzzy
 spacy==3.7.4
 rapidfuzz==3.9.3
 python-dateutil==2.9.0.post0
-
-# Minimal spaCy deps to avoid large wheels at build on Render free tier
-catalogue==2.0.10
-srsly==2.4.8
-preshed==3.0.9
-thinc==8.2.5
-wasabi==1.1.2
