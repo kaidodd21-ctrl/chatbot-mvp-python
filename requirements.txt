@@ -1,20 +1,12 @@
-fastapi==0.110.0
+fastapi==0.110.2
 uvicorn==0.29.0
-pydantic==1.10.15
-rapidfuzz==3.6.1
+pydantic==1.10.14
+spacy==3.7.4
+rapidfuzz==3.9.3
 
-# SpaCy core library (CPU wheel only)
-spacy==3.7.2
-
-# Force prebuilt wheels for spaCy dependencies
-blis==0.7.11
-thinc==8.2.3
-murmurhash==1.0.10
-cymem==2.0.8
-preshed==3.0.9
-srsly==2.4.8
+# Minimal dependencies spaCy needs (avoid heavy wheels build failures)
 catalogue==2.0.10
-pathlib==1.0.1
-
-# Install spaCy English model (prebuilt wheel)
-en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
+srsly==2.4.8
+preshed==3.0.9
+thinc==8.2.5
+wasabi==1.1.2

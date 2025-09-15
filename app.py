@@ -70,7 +70,6 @@ common_names = ["Jake", "John", "Alex", "Kai", "Sarah", "Emma", "Tom", "Michael"
 def extract_name(message: str) -> Optional[str]:
     msg = message.strip()
 
-    # Regex patterns
     patterns = [
         r"\b(?:i am|i'm|im)\s+([A-Z][a-z]+)",
         r"\bmy name is\s+([A-Z][a-z]+)",
@@ -86,11 +85,9 @@ def extract_name(message: str) -> Optional[str]:
             candidate = match.group(1).title()
             return fuzzy_name(candidate)
 
-    # Single-word heuristic
     if len(msg.split()) == 1 and msg[0].isupper():
         return fuzzy_name(msg.title())
 
-    # NLP fallback
     doc = nlp(msg)
     for ent in doc.ents:
         if ent.label_ == "PERSON":
@@ -161,10 +158,7 @@ def handle_smalltalk(message: str, session: Dict) -> Optional[ChatResponse]:
 
     if any(w in msg for w in ["hi", "hello", "hey", "yo"]):
         name = session["slots"].get("name")
-        if name:
-            reply = f"Hey {name} 👋 great to see you again!"
-        else:
-            reply = random.choice(responses["greeting"])
+        reply = f"Hey {name} 👋 great to see you again!" if name else random.choice(responses["greeting"])
         return ChatResponse(reply=reply, suggestions=["Make a booking", "Opening hours"], session_id=sid)
 
     if "how are you" in msg:
@@ -199,7 +193,6 @@ def chat(payload: ChatRequest):
     session["id"] = session_id
     message = payload.message.strip()
 
-    # Name introduction detection
     possible_name = extract_name(message)
     if possible_name:
         session["slots"]["name"] = possible_name
@@ -208,14 +201,12 @@ def chat(payload: ChatRequest):
         remember(session, message, reply)
         return response
 
-    # Booking
     if session["last_intent"] == "booking" or "book" in message.lower():
         session["last_intent"] = "booking"
         response = handle_booking(session, message)
         remember(session, message, response.reply)
         return response
 
-    # Quick intents
     if "opening" in message.lower():
         reply = "We’re open Mon–Sat, 9am–6pm ⏰"
         response = ChatResponse(reply=reply, suggestions=["Make a booking", "Contact details"], session_id=session_id)
@@ -234,18 +225,17 @@ def chat(payload: ChatRequest):
         remember(session, message, reply)
         return response
 
-    # Smalltalk
     smalltalk = handle_smalltalk(message, session)
     if smalltalk:
         remember(session, message, smalltalk.reply)
         return smalltalk
 
-    # Fallback with personalization
     name = session["slots"].get("name")
-    if name:
-        reply = f"That’s interesting, {name} 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?"
-    else:
-        reply = "That’s interesting 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?"
+    reply = (
+        f"That’s interesting, {name} 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?"
+        if name else
+        "That’s interesting 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?"
+    )
 
     response = ChatResponse(reply=reply, suggestions=["Make a booking", "Opening hours", "Contact details"], session_id=session_id)
     remember(session, message, reply)

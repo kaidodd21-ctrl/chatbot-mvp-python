@@ -23,9 +23,12 @@
   </div>
 
   <script>
-  const BACKEND_URL = "https://your-render-url.onrender.com/chat"; // replace with live backend
+  const BACKEND_URL = "https://your-render-url.onrender.com/chat"; // Replace with Render backend
   let sessionId = null;
 
+  // ------------------------------
+  // Status Handling
+  // ------------------------------
   function setStatus(state, text) {
     const statusEl = document.getElementById("status");
     statusEl.className = `status ${state}`;
@@ -52,6 +55,9 @@
     restartChat();
   };
 
+  // ------------------------------
+  // Message Helpers
+  // ------------------------------
   function addUserMessage(text) {
     const chatBox = document.getElementById("chat-box");
     const msgWrapper = document.createElement("div");
@@ -117,6 +123,9 @@
     if (typingDiv) typingDiv.remove();
   }
 
+  // ------------------------------
+  // Send + Handle Messages
+  // ------------------------------
   async function sendMessage(text) {
     const statusEl = addUserMessage(text);
     document.getElementById("user-input").value = "";
@@ -140,7 +149,7 @@
           setTimeout(() => addSuggestions(data.suggestions), 400);
         }
         statusEl.innerText = "✓✓ Read";
-      }, Math.floor(Math.random() * 1000) + 500);
+      }, Math.floor(Math.random() * 1000) + 500); // random delay for realism
     } catch (error) {
       hideTyping();
       addBotMessage("⚠️ Oops, I couldn’t connect to the server. Please try again.");
