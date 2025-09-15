@@ -254,6 +254,20 @@ def chat(payload: ChatRequest):
     remember(session, message, reply)
     return response
 
+@app.get("/health")
+def health():
+    try:
+        # Quick spaCy test
+        doc = nlp("Hello world")
+        tokens = [token.text for token in doc]
+        return {
+            "status": "ok",
+            "spacy_model": "en_core_web_sm",
+            "tokens": tokens
+        }
+    except Exception as e:
+        return {"status": "error", "details": str(e)}
+
 # -----------------------------
 # Root
 # -----------------------------
