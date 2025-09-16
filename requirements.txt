@@ -2,10 +2,10 @@ fastapi==0.115.0
 uvicorn==0.30.1
 pydantic==2.9.2
 
-# Install spaCy core but skip its dependencies (so no blis)
-spacy==3.7.4 --no-deps
+# spaCy core (no auto-deps pulled, because we control them manually)
+spacy==3.7.4
 
-# Minimal spaCy deps (all have wheels, no GCC needed)
+# Minimal deps spaCy actually needs (all wheels, no blis build)
 thinc==8.2.5
 srsly==2.4.8
 preshed==3.0.9
