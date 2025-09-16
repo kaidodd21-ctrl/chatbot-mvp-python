@@ -2,16 +2,16 @@ fastapi==0.115.0
 uvicorn==0.30.1
 pydantic==2.9.2
 
-# Install spaCy but block blis dependency resolution
-spacy==3.7.4
+# Install spaCy core but skip its dependencies (so no blis)
+spacy==3.7.4 --no-deps
+
+# Minimal spaCy deps (all have wheels, no GCC needed)
 thinc==8.2.5
 srsly==2.4.8
 preshed==3.0.9
 catalogue==2.0.10
 wasabi==1.1.2
+murmurhash==1.0.10
 
 rapidfuzz==3.9.3
 python-dateutil==2.9.0.post0
-
-# Explicitly block blis (forces pip to skip it)
-blis==0.0.0; python_version < "0"
