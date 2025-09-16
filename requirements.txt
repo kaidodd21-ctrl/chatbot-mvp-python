@@ -1,15 +1,5 @@
 fastapi==0.115.0
 uvicorn==0.30.1
 pydantic==2.9.2
-
-# Install spaCy without blis
-spacy==3.7.4 --no-deps
-thinc==8.2.2
-srsly==2.4.8
-catalogue==2.0.10
-murmurhash==1.0.10
-preshed==3.0.9
-cymem==2.0.8
-
 rapidfuzz==3.9.3
 python-dateutil==2.9.0.post0

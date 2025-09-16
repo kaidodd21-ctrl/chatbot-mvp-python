@@ -2,19 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Optional
-import uuid, random, re, subprocess, datetime
+import uuid, random, re, datetime
 from rapidfuzz import fuzz, process
-import spacy
 from dateutil import parser as dtparser
-
-# -----------------------------
-# Auto-download spaCy model if missing
-# -----------------------------
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
-    nlp = spacy.load("en_core_web_sm")
 
 app = FastAPI()
 
@@ -34,9 +24,7 @@ BUSINESS = {
     "hours_text": "Mon–Sat, 9am–6pm",
     "contact_phone": "01234 567890",
     "contact_email": "hello@example.com",
-    # Services are used for suggestions + service detection
     "services": ["Haircut", "Massage", "Nails"],
-    # Later you can map service -> duration/price
 }
 
 # -----------------------------
@@ -68,7 +56,7 @@ def get_session(session_id: Optional[str]) -> str:
                 "contact": None,
             },
             "history": [],
-            "bookings": []  # simple in-mem log for this session
+            "bookings": []
         }
     return session_id
 
@@ -78,7 +66,7 @@ def remember(session: Dict, user_msg: str, bot_reply: str):
         session["history"] = session["history"][-10:]
 
 # -----------------------------
-# Name Extraction (Hybrid)
+# Name Extraction (Regex + Fuzzy)
 # -----------------------------
 common_names = ["Jake", "John", "Alex", "Kai", "Sarah", "Emma", "Tom", "Michael", "Emily", "Sophia"]
 
@@ -103,11 +91,6 @@ def extract_name(message: str) -> Optional[str]:
     if len(msg.split()) == 1 and msg[0].isupper():
         return fuzzy_name(msg.title())
 
-    doc = nlp(msg)
-    for ent in doc.ents:
-        if ent.label_ == "PERSON":
-            return fuzzy_name(ent.text.title())
-
     return None
 
 def fuzzy_name(name: str) -> str:
@@ -117,41 +100,32 @@ def fuzzy_name(name: str) -> str:
     return name
 
 # -----------------------------
-# Date/Time Helpers (lightweight)
+# Date/Time Helpers
 # -----------------------------
 WEEKDAYS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
 
 def parse_datetime_text(text: str) -> Optional[str]:
-    """
-    Returns a normalized readable datetime string or None.
-    Handles simple terms: 'today', 'tomorrow', weekdays, or free-form like 'Fri 3pm', '2025-09-20 14:00'.
-    """
     t = text.lower()
-
     now = datetime.datetime.now()
-    # Simple keywords
+
     if "today" in t:
         return now.strftime("today at %I:%M %p")
     if "tomorrow" in t:
         target = now + datetime.timedelta(days=1)
         return target.strftime("tomorrow at %I:%M %p")
 
-    # Weekday like "friday 11am"
     for i, wd in enumerate(WEEKDAYS):
         if wd in t:
-            # find next wd (including this week)
             days_ahead = (i - now.weekday()) % 7
             if days_ahead == 0:
                 days_ahead = 7
             target = now + datetime.timedelta(days=days_ahead)
-            # try extracting a time with dateutil; if none, default to 11:00
             try:
-                dt = dtparser.parse(text, fuzzy=True, default=target.replace(hour=11, minute=0, second=0, microsecond=0))
+                dt = dtparser.parse(text, fuzzy=True, default=target.replace(hour=11, minute=0))
                 return dt.strftime("%A %d %b, %I:%M %p")
             except Exception:
                 return target.replace(hour=11, minute=0).strftime("%A %d %b, %I:%M %p")
 
-    # Free-form parse attempt (e.g., "Fri 3pm", "20 Sept 14:00")
     try:
         dt = dtparser.parse(text, fuzzy=True)
         return dt.strftime("%a %d %b, %I:%M %p")
@@ -166,21 +140,19 @@ def detect_service(text: str) -> Optional[str]:
     return None
 
 # -----------------------------
-# Payment Stub (placeholder)
+# Payment Stub
 # -----------------------------
 def make_payment_link(session_id: str) -> str:
-    # Replace this later with a real Stripe/Checkout URL
     tail = session_id.split("-")[0]
     return f"https://example-payments.test/checkout/{tail}"
 
 # -----------------------------
-# Booking Flow (preserves existing logic; adds parsing/validation)
+# Booking Flow
 # -----------------------------
 def handle_booking(session: Dict, message: str) -> ChatResponse:
     slots = session["slots"]
     sid = session["id"]
 
-    # 1) Service
     if not slots["service"]:
         maybe = detect_service(message)
         if maybe:
@@ -189,7 +161,6 @@ def handle_booking(session: Dict, message: str) -> ChatResponse:
             reply = f"Sure 👍 what service would you like to book at {BUSINESS['name']}?"
             return ChatResponse(reply=reply, suggestions=BUSINESS["services"], session_id=sid)
 
-    # 2) Datetime
     if not slots["datetime"]:
         guessed = parse_datetime_text(message)
         if guessed:
@@ -202,9 +173,7 @@ def handle_booking(session: Dict, message: str) -> ChatResponse:
                 session_id=sid
             )
 
-    # 3) Name
     if not slots["name"]:
-        # Try extraction one more time from this message
         nm = extract_name(message)
         if nm:
             slots["name"] = nm
@@ -212,9 +181,7 @@ def handle_booking(session: Dict, message: str) -> ChatResponse:
             reply = "Got it 👍 What’s your name?"
             return ChatResponse(reply=reply, session_id=sid)
 
-    # 4) Contact
     if not slots["contact"]:
-        # very light validation
         text = message.strip()
         looks_email = "@" in text and "." in text
         looks_phone = any(ch.isdigit() for ch in text) and len(re.sub(r"\D", "", text)) >= 7
@@ -224,7 +191,6 @@ def handle_booking(session: Dict, message: str) -> ChatResponse:
             reply = "And finally, could you share your phone or email for confirmation?"
             return ChatResponse(reply=reply, session_id=sid)
 
-    # All slots present → "confirm" the booking (in-memory)
     booking = {
         "service": slots["service"],
         "datetime": slots["datetime"],
@@ -247,7 +213,7 @@ def handle_booking(session: Dict, message: str) -> ChatResponse:
     )
 
 # -----------------------------
-# Smalltalk (unchanged content, uses business details where helpful)
+# Smalltalk
 # -----------------------------
 def handle_smalltalk(message: str, session: Dict) -> Optional[ChatResponse]:
     msg = message.lower().strip()
@@ -255,21 +221,14 @@ def handle_smalltalk(message: str, session: Dict) -> Optional[ChatResponse]:
 
     responses = {
         "greeting": ["Hey there 👋", "Hiya 🙌", "Yo, what’s up? 😎"],
-        "how_are_you": ["I’m doing great, thanks 😊 How about you?", "Feeling chatty today 😁 How are you?"],
         "thanks": ["Anytime 🙌", "You’re very welcome!", "No worries 👍"],
         "bye": ["Catch you later 👋", "Bye! Take care 😊", "See ya soon 🚀"],
-        "joke": ["😂 Why don’t skeletons fight? They don’t have the guts!", "🤣 I tried to book a haircut… but couldn’t make the cut!"],
-        "hungry": ["I can’t cook 🍔 but I can schedule your pampering.", "Food is life 😋 but I’m here for bookings."]
     }
 
     if any(w in msg for w in ["hi", "hello", "hey", "yo"]):
         name = session["slots"].get("name")
         reply = f"Hey {name} 👋 great to see you again!" if name else random.choice(responses["greeting"])
         return ChatResponse(reply=reply, suggestions=["Make a booking", "Opening hours"], session_id=sid)
-
-    if "how are you" in msg:
-        reply = random.choice(responses["how_are_you"])
-        return ChatResponse(reply=reply, suggestions=["Good 👍", "Not bad", "Could be better"], session_id=sid)
 
     if "thank" in msg:
         reply = random.choice(responses["thanks"])
@@ -278,14 +237,6 @@ def handle_smalltalk(message: str, session: Dict) -> Optional[ChatResponse]:
     if any(w in msg for w in ["bye", "goodbye", "later", "see ya"]):
         reply = random.choice(responses["bye"])
         return ChatResponse(reply=reply, suggestions=["Restart chat", "Contact details"], session_id=sid)
-
-    if "joke" in msg:
-        reply = random.choice(responses["joke"])
-        return ChatResponse(reply=reply, suggestions=["Tell me another joke", "Back to booking"], session_id=sid)
-
-    if "hungry" in msg or "food" in msg:
-        reply = random.choice(responses["hungry"])
-        return ChatResponse(reply=reply, suggestions=["Any food recommendations?", "Make a booking"], session_id=sid)
 
     return None
 
@@ -299,15 +250,13 @@ def chat(payload: ChatRequest):
     session["id"] = session_id
     message = payload.message.strip()
 
-    # Special: "Pay now" button → return stub link
     if message.lower() in ["pay now", "pay", "checkout"]:
         url = make_payment_link(session_id)
-        reply = f"Here’s your secure checkout link: {url}\n\nOnce paid, you’ll receive a confirmation by email/SMS."
-        response = ChatResponse(reply=reply, suggestions=["Make another booking", "Contact support"], session_id=session_id)
+        reply = f"Here’s your secure checkout link: {url}"
+        response = ChatResponse(reply=reply, suggestions=["Make another booking"], session_id=session_id)
         remember(session, message, reply)
         return response
 
-    # Update name if found (keeps original behavior)
     possible_name = extract_name(message)
     if possible_name:
         session["slots"]["name"] = possible_name
@@ -316,14 +265,12 @@ def chat(payload: ChatRequest):
         remember(session, message, reply)
         return response
 
-    # Booking intent (keeps original trigger)
     if session["last_intent"] == "booking" or "book" in message.lower():
         session["last_intent"] = "booking"
         response = handle_booking(session, message)
         remember(session, message, response.reply)
         return response
 
-    # Opening hours / contact (uses business profile)
     if "opening" in message.lower() or "hours" in message.lower():
         reply = f"We’re open {BUSINESS['hours_text']} ⏰"
         response = ChatResponse(reply=reply, suggestions=["Make a booking", "Contact details"], session_id=session_id)
@@ -337,27 +284,23 @@ def chat(payload: ChatRequest):
         return response
 
     if "cancel" in message.lower():
-        # simple cancel: clear slots (preserve history)
         session["slots"] = {"service": None, "datetime": None, "name": session["slots"].get("name"), "contact": None}
         reply = "Okay, I’ve cancelled your booking details here ✅"
-        response = ChatResponse(reply=reply, suggestions=["Make a new booking", "Contact support"], session_id=session_id)
+        response = ChatResponse(reply=reply, suggestions=["Make a new booking"], session_id=session_id)
         remember(session, message, reply)
         return response
 
-    # Smalltalk
     smalltalk = handle_smalltalk(message, session)
     if smalltalk:
         remember(session, message, smalltalk.reply)
         return smalltalk
 
-    # Default fallback (personalized if name known)
     name = session["slots"].get("name")
     reply = (
-        f"That’s interesting, {name} 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?"
+        f"That’s interesting, {name} 🤔 I mostly help with bookings, opening hours, or contact details."
         if name else
-        "That’s interesting 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?"
+        "That’s interesting 🤔 I mostly help with bookings, opening hours, or contact details."
     )
-
     response = ChatResponse(
         reply=reply,
         suggestions=["Make a booking", "Opening hours", "Contact details"],
@@ -367,18 +310,15 @@ def chat(payload: ChatRequest):
     return response
 
 # -----------------------------
-# Health Check Endpoint
+# Health & Root
 # -----------------------------
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-# -----------------------------
-# Root
-# -----------------------------
 @app.get("/")
 def root():
     return {
         "status": "ok",
-        "message": "Kai Virtual Assistant backend (V8.0: business profile + payment stub + improved datetime)"
+        "message": "Kai Virtual Assistant backend (V8.0 lightweight, no spaCy)"
     }
