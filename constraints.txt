@@ -1,0 +1,2 @@
+# Force pip to never install blis
+blis==0.0.0
