@@ -1,2 +1,10 @@
-# Force pip to never install blis
+# Pin safe spaCy dependencies (all publish wheels)
+thinc==8.2.5
+srsly==2.4.8
+preshed==3.0.9
+catalogue==2.0.10
+wasabi==1.1.2
+murmurhash==1.0.10
+
+# Block blis completely
 blis==0.0.0
