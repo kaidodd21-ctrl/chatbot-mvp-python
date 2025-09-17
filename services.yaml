@@ -1,0 +1,23 @@
+business:
+  name: "Kai Demo Salon"
+  hours: "Mon–Sat, 9am–6pm"
+  contact:
+    phone: "01234 567890"
+    email: "hello@example.com"
+
+services:
+  - name: "Haircut"
+    price: 25
+    duration: "30 mins"
+  - name: "Beard Trim"
+    price: 15
+    duration: "20 mins"
+  - name: "Wash & Cut"
+    price: 35
+    duration: "45 mins"
+  - name: "Massage"
+    price: 40
+    duration: "60 mins"
+  - name: "Nails"
+    price: 20
+    duration: "30 mins"
