@@ -1,5 +1,4 @@
 fastapi==0.115.0
 uvicorn==0.30.1
 pydantic==2.9.2
-rapidfuzz==3.9.3
 python-dateutil==2.9.0.post0
