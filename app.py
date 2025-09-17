@@ -17,7 +17,7 @@ app.add_middleware(
 )
 
 # -----------------------------
-# Business Profile (multi-biz ready)
+# Business Profile
 # -----------------------------
 BUSINESS = {
     "name": "Kai Demo Salon",
@@ -49,12 +49,7 @@ def get_session(session_id: Optional[str]) -> str:
         session_id = str(uuid.uuid4())
         sessions[session_id] = {
             "last_intent": None,
-            "slots": {
-                "service": None,
-                "datetime": None,
-                "name": None,
-                "contact": None,
-            },
+            "slots": {"service": None, "datetime": None, "name": None, "contact": None},
             "history": [],
             "bookings": []
         }
@@ -66,12 +61,17 @@ def remember(session: Dict, user_msg: str, bot_reply: str):
         session["history"] = session["history"][-10:]
 
 # -----------------------------
-# Name Extraction (Regex + Fuzzy)
+# Name Extraction (service-aware)
 # -----------------------------
 common_names = ["Jake", "John", "Alex", "Kai", "Sarah", "Emma", "Tom", "Michael", "Emily", "Sophia"]
 
 def extract_name(message: str) -> Optional[str]:
     msg = message.strip()
+
+    # Guard: don't misclassify services
+    for svc in BUSINESS["services"]:
+        if msg.lower() == svc.lower():
+            return None
 
     patterns = [
         r"\b(?:i am|i'm|im)\s+([A-Z][a-z]+)",
@@ -89,7 +89,8 @@ def extract_name(message: str) -> Optional[str]:
             return fuzzy_name(candidate)
 
     if len(msg.split()) == 1 and msg[0].isupper():
-        return fuzzy_name(msg.title())
+        if msg.title() not in BUSINESS["services"]:
+            return fuzzy_name(msg.title())
 
     return None
 
@@ -107,25 +108,19 @@ WEEKDAYS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunda
 def parse_datetime_text(text: str) -> Optional[str]:
     t = text.lower()
     now = datetime.datetime.now()
-
     if "today" in t:
         return now.strftime("today at %I:%M %p")
     if "tomorrow" in t:
-        target = now + datetime.timedelta(days=1)
-        return target.strftime("tomorrow at %I:%M %p")
-
+        return (now + datetime.timedelta(days=1)).strftime("tomorrow at %I:%M %p")
     for i, wd in enumerate(WEEKDAYS):
         if wd in t:
-            days_ahead = (i - now.weekday()) % 7
-            if days_ahead == 0:
-                days_ahead = 7
+            days_ahead = (i - now.weekday()) % 7 or 7
             target = now + datetime.timedelta(days=days_ahead)
             try:
                 dt = dtparser.parse(text, fuzzy=True, default=target.replace(hour=11, minute=0))
                 return dt.strftime("%A %d %b, %I:%M %p")
             except Exception:
                 return target.replace(hour=11, minute=0).strftime("%A %d %b, %I:%M %p")
-
     try:
         dt = dtparser.parse(text, fuzzy=True)
         return dt.strftime("%a %d %b, %I:%M %p")
@@ -143,8 +138,7 @@ def detect_service(text: str) -> Optional[str]:
 # Payment Stub
 # -----------------------------
 def make_payment_link(session_id: str) -> str:
-    tail = session_id.split("-")[0]
-    return f"https://example-payments.test/checkout/{tail}"
+    return f"https://example-payments.test/checkout/{session_id.split('-')[0]}"
 
 # -----------------------------
 # Booking Flow
@@ -158,17 +152,19 @@ def handle_booking(session: Dict, message: str) -> ChatResponse:
         if maybe:
             slots["service"] = maybe
         else:
-            reply = f"Sure 👍 what service would you like to book at {BUSINESS['name']}?"
-            return ChatResponse(reply=reply, suggestions=BUSINESS["services"], session_id=sid)
+            return ChatResponse(
+                reply=f"Sure 👍 what service would you like to book at {BUSINESS['name']}?",
+                suggestions=BUSINESS["services"],
+                session_id=sid
+            )
 
     if not slots["datetime"]:
         guessed = parse_datetime_text(message)
         if guessed:
             slots["datetime"] = guessed
         else:
-            reply = "When would you like your appointment?"
             return ChatResponse(
-                reply=reply,
+                reply="When would you like your appointment?",
                 suggestions=["Tomorrow 3pm", "Friday 11am", "Saturday 2pm"],
                 session_id=sid
             )
@@ -178,8 +174,7 @@ def handle_booking(session: Dict, message: str) -> ChatResponse:
         if nm:
             slots["name"] = nm
         else:
-            reply = "Got it 👍 What’s your name?"
-            return ChatResponse(reply=reply, session_id=sid)
+            return ChatResponse(reply="Got it 👍 What’s your name?", session_id=sid)
 
     if not slots["contact"]:
         text = message.strip()
@@ -188,8 +183,7 @@ def handle_booking(session: Dict, message: str) -> ChatResponse:
         if looks_email or looks_phone:
             slots["contact"] = text
         else:
-            reply = "And finally, could you share your phone or email for confirmation?"
-            return ChatResponse(reply=reply, session_id=sid)
+            return ChatResponse(reply="And finally, could you share your phone or email for confirmation?", session_id=sid)
 
     booking = {
         "service": slots["service"],
@@ -200,14 +194,12 @@ def handle_booking(session: Dict, message: str) -> ChatResponse:
     }
     session["bookings"].append(booking)
 
-    pay_url = make_payment_link(sid)
-    reply = (
-        f"Perfect ✅ I’ve pencilled your **{slots['service']}** on **{slots['datetime']}** for **{slots['name']}**.\n"
-        f"Confirmation will be sent to **{slots['contact']}**.\n\n"
-        f"To secure the slot, tap **Pay now** to complete checkout."
-    )
     return ChatResponse(
-        reply=reply,
+        reply=(
+            f"Perfect ✅ I’ve pencilled your **{slots['service']}** on **{slots['datetime']}** for **{slots['name']}**.\n"
+            f"Confirmation will be sent to **{slots['contact']}**.\n\n"
+            f"To secure the slot, tap **Pay now** to complete checkout."
+        ),
         suggestions=["Pay now", "Change time", "Make another booking"],
         session_id=sid
     )
@@ -218,26 +210,28 @@ def handle_booking(session: Dict, message: str) -> ChatResponse:
 def handle_smalltalk(message: str, session: Dict) -> Optional[ChatResponse]:
     msg = message.lower().strip()
     sid = session["id"]
-
     responses = {
         "greeting": ["Hey there 👋", "Hiya 🙌", "Yo, what’s up? 😎"],
+        "how_are_you": ["I’m doing great, thanks 😊 How about you?", "Feeling chatty today 😁 How are you?"],
         "thanks": ["Anytime 🙌", "You’re very welcome!", "No worries 👍"],
         "bye": ["Catch you later 👋", "Bye! Take care 😊", "See ya soon 🚀"],
+        "joke": ["😂 Why don’t skeletons fight? They don’t have the guts!", "🤣 I tried to book a haircut… but couldn’t make the cut!"],
+        "hungry": ["I can’t cook 🍔 but I can schedule your pampering.", "Food is life 😋 but I’m here for bookings."]
     }
-
     if any(w in msg for w in ["hi", "hello", "hey", "yo"]):
         name = session["slots"].get("name")
         reply = f"Hey {name} 👋 great to see you again!" if name else random.choice(responses["greeting"])
         return ChatResponse(reply=reply, suggestions=["Make a booking", "Opening hours"], session_id=sid)
-
+    if "how are you" in msg:
+        return ChatResponse(reply=random.choice(responses["how_are_you"]), suggestions=["Good 👍","Not bad","Could be better"], session_id=sid)
     if "thank" in msg:
-        reply = random.choice(responses["thanks"])
-        return ChatResponse(reply=reply, suggestions=["Make a booking", "Contact details"], session_id=sid)
-
+        return ChatResponse(reply=random.choice(responses["thanks"]), suggestions=["Make a booking","Contact details"], session_id=sid)
     if any(w in msg for w in ["bye", "goodbye", "later", "see ya"]):
-        reply = random.choice(responses["bye"])
-        return ChatResponse(reply=reply, suggestions=["Restart chat", "Contact details"], session_id=sid)
-
+        return ChatResponse(reply=random.choice(responses["bye"]), suggestions=["Restart chat","Contact details"], session_id=sid)
+    if "joke" in msg:
+        return ChatResponse(reply=random.choice(responses["joke"]), suggestions=["Tell me another joke","Back to booking"], session_id=sid)
+    if "hungry" in msg or "food" in msg:
+        return ChatResponse(reply=random.choice(responses["hungry"]), suggestions=["Any food recommendations?","Make a booking"], session_id=sid)
     return None
 
 # -----------------------------
@@ -252,41 +246,43 @@ def chat(payload: ChatRequest):
 
     if message.lower() in ["pay now", "pay", "checkout"]:
         url = make_payment_link(session_id)
-        reply = f"Here’s your secure checkout link: {url}"
-        response = ChatResponse(reply=reply, suggestions=["Make another booking"], session_id=session_id)
+        reply = f"Here’s your secure checkout link: {url}\n\nOnce paid, you’ll receive a confirmation by email/SMS."
+        response = ChatResponse(reply=reply, suggestions=["Make another booking","Contact support"], session_id=session_id)
         remember(session, message, reply)
         return response
 
-    possible_name = extract_name(message)
-    if possible_name:
-        session["slots"]["name"] = possible_name
-        reply = f"Nice to meet you, {possible_name} 😃"
-        response = ChatResponse(reply=reply, suggestions=["Make a booking", "Opening hours"], session_id=session_id)
-        remember(session, message, reply)
-        return response
-
+    # Booking first
     if session["last_intent"] == "booking" or "book" in message.lower():
         session["last_intent"] = "booking"
         response = handle_booking(session, message)
         remember(session, message, response.reply)
         return response
 
+    # Then check for names
+    possible_name = extract_name(message)
+    if possible_name:
+        session["slots"]["name"] = possible_name
+        reply = f"Nice to meet you, {possible_name} 😃"
+        response = ChatResponse(reply=reply, suggestions=["Make a booking","Opening hours"], session_id=session_id)
+        remember(session, message, reply)
+        return response
+
     if "opening" in message.lower() or "hours" in message.lower():
         reply = f"We’re open {BUSINESS['hours_text']} ⏰"
-        response = ChatResponse(reply=reply, suggestions=["Make a booking", "Contact details"], session_id=session_id)
+        response = ChatResponse(reply=reply, suggestions=["Make a booking","Contact details"], session_id=session_id)
         remember(session, message, reply)
         return response
 
     if "contact" in message.lower() or "phone" in message.lower() or "email" in message.lower():
         reply = f"You can reach us at 📞 {BUSINESS['contact_phone']} or ✉️ {BUSINESS['contact_email']}"
-        response = ChatResponse(reply=reply, suggestions=["Make a booking", "Opening hours"], session_id=session_id)
+        response = ChatResponse(reply=reply, suggestions=["Make a booking","Opening hours"], session_id=session_id)
         remember(session, message, reply)
         return response
 
     if "cancel" in message.lower():
         session["slots"] = {"service": None, "datetime": None, "name": session["slots"].get("name"), "contact": None}
         reply = "Okay, I’ve cancelled your booking details here ✅"
-        response = ChatResponse(reply=reply, suggestions=["Make a new booking"], session_id=session_id)
+        response = ChatResponse(reply=reply, suggestions=["Make a new booking","Contact support"], session_id=session_id)
         remember(session, message, reply)
         return response
 
@@ -296,21 +292,15 @@ def chat(payload: ChatRequest):
         return smalltalk
 
     name = session["slots"].get("name")
-    reply = (
-        f"That’s interesting, {name} 🤔 I mostly help with bookings, opening hours, or contact details."
-        if name else
-        "That’s interesting 🤔 I mostly help with bookings, opening hours, or contact details."
-    )
-    response = ChatResponse(
-        reply=reply,
-        suggestions=["Make a booking", "Opening hours", "Contact details"],
-        session_id=session_id
-    )
+    reply = (f"That’s interesting, {name} 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?"
+             if name else
+             "That’s interesting 🤔 I mostly help with bookings, opening hours, or contact details. Want me to show you?")
+    response = ChatResponse(reply=reply, suggestions=["Make a booking","Opening hours","Contact details"], session_id=session_id)
     remember(session, message, reply)
     return response
 
 # -----------------------------
-# Health & Root
+# Health + Root
 # -----------------------------
 @app.get("/health")
 def health():
@@ -318,7 +308,4 @@ def health():
 
 @app.get("/")
 def root():
-    return {
-        "status": "ok",
-        "message": "Kai Virtual Assistant backend (V8.0 lightweight, no spaCy)"
-    }
+    return {"status": "ok", "message": "Kai Virtual Assistant backend (no spaCy, service-aware names)"}

@@ -1,203 +1,221 @@
-body {
-  font-family: system-ui, sans-serif;
-  background: #f7f7f7;
+/* --------- Global Reset --------- */
+* {
+  box-sizing: border-box;
   margin: 0;
+  padding: 0;
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  background: #ece5dd;
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   height: 100vh;
 }
 
+/* --------- Chat Container --------- */
 #chat-container {
   width: 400px;
+  max-width: 100%;
+  height: 90vh;
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
 
 header {
   background: #075e54;
   color: #fff;
-  padding: 10px;
+  padding: 12px 15px;
   display: flex;
+  align-items: center;
   justify-content: space-between;
+}
+
+header h2 {
+  font-size: 16px;
+}
+
+header button {
+  background: #128c7e;
+  border: none;
+  padding: 6px 10px;
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+header button:hover {
+  background: #0e6f62;
+}
+
+/* --------- Status (top) --------- */
+.status {
+  font-size: 12px;
+  display: flex;
   align-items: center;
 }
 
+.status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  background: #ccc;
+}
+
+.status.online .dot { background: #25d366; }
+.status.offline .dot { background: #d32f2f; }
+.status.checking .dot { background: #fbc02d; }
+
+/* --------- Chat Box --------- */
 #chat-box {
   flex: 1;
   padding: 10px;
   overflow-y: auto;
+  background: #e5ddd5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
+/* --------- Messages --------- */
+.message {
+  display: flex;
+  align-items: flex-end;
+  max-width: 75%;
+}
+
+.message .bubble {
+  padding: 8px 12px;
+  border-radius: 10px;
+  line-height: 1.4;
+  position: relative;
+  font-size: 14px;
+}
+
+.message.user {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+
+.message.user .bubble {
+  background: #dcf8c6;
+  border-bottom-right-radius: 0;
+}
+
+.message.bot {
+  margin-right: auto;
+  justify-content: flex-start;
+}
+
+.message.bot .bubble {
+  background: #fff;
+  border-bottom-left-radius: 0;
+}
+
+/* --------- Status ticks under user --------- */
+.message.user .status {
+  font-size: 11px;
+  margin-top: 2px;
+  text-align: right;
+  color: #999;
+}
+
+.message.user .status.sent::after {
+  content: "✓";
+  margin-left: 4px;
+  font-weight: bold;
+}
+
+.message.user .status.delivered::after {
+  content: "✓✓";
+  margin-left: 4px;
+  font-weight: bold;
+}
+
+.message.user .status.read::after {
+  content: "✓✓";
+  margin-left: 4px;
+  font-weight: bold;
+  color: #007bff;
+}
+
+/* --------- Typing Indicator --------- */
+.bubble.typing {
+  display: flex;
+  gap: 3px;
+}
+
+.bubble.typing .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #999;
+  animation: blink 1.2s infinite;
+}
+
+.bubble.typing .dot:nth-child(2) { animation-delay: 0.2s; }
+.bubble.typing .dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.3; }
+  40% { opacity: 1; }
+}
+
+/* --------- Suggestions --------- */
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-left: 40px;
+}
+
+.suggestions button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 16px;
+  background: #f1f0f0;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s;
+}
+
+.suggestions button:hover {
+  background: #ddd;
+}
+
+/* --------- Input --------- */
 #input-container {
   display: flex;
   border-top: 1px solid #ddd;
 }
 
-#input-container input {
+#user-input {
   flex: 1;
+  padding: 12px;
   border: none;
-  padding: 10px;
   font-size: 14px;
 }
 
-#input-container input:focus { outline: none; }
+#user-input:focus {
+  outline: none;
+}
 
 #input-container button {
-  background: #075e54;
+  background: #128c7e;
   color: #fff;
   border: none;
-  padding: 10px 15px;
+  padding: 0 20px;
   cursor: pointer;
-}
-
-/* --- Messages --- */
-.message {
-  display: flex;
-  align-items: flex-start;
-  margin: 8px 0;
-}
-
-.avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  margin-right: 8px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #fff;
-  font-weight: bold;
   font-size: 14px;
 }
 
-.message.user .avatar {
-  background: #34b7f1;
-}
-.message.user .avatar::after {
-  content: "U";
-}
-
-.message.bot .avatar {
-  background: #075e54;
-}
-.message.bot .avatar::after {
-  content: "K";
-}
-
-.bubble {
-  padding: 8px 12px;
-  border-radius: 12px;
-  max-width: 70%;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-}
-
-.user .bubble {
-  background: #dcf8c6;
-}
-
-.bot .bubble {
-  background: #f1f0f0;
-}
-
-.status {
-  font-size: 10px;
-  margin-left: auto;
-  margin-top: 4px;
-  color: #666;
-}
-
-.bubble.typing {
-  display: flex;
-  gap: 4px;
-  padding: 8px;
-}
-
-.dot {
-  width: 6px;
-  height: 6px;
-  background: #555;
-  border-radius: 50%;
-  animation: blink 1.4s infinite both;
-}
-.dot:nth-child(2) { animation-delay: 0.2s; }
-.dot:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes blink {
-  0%, 80%, 100% { opacity: 0; }
-  40% { opacity: 1; }
-}
-
-/* --- Suggestions --- */
-.suggestions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 10px 0 5px 40px;
-}
-
-.suggestions button {
-  border: none;
-  background: #e5e5e5;
-  color: #333;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  opacity: 0;
-  transform: translateY(10px);
-  animation: chipFadeIn 0.3s forwards;
-}
-
-.suggestions button:hover {
-  background: #075e54;
-  color: #fff;
-  transform: translateY(-1px);
-}
-
-.suggestions button:active {
-  background: #064c44;
-  color: #fff;
-  transform: scale(0.98);
-}
-
-@keyframes chipFadeIn {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* --- Status Dot (header) --- */
-.status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.status .dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: grey;
-}
-
-.status.online .dot { background: #28a745; }
-.status.offline .dot { background: #dc3545; }
-.status.checking .dot {
-  background: orange;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0%   { transform: scale(1); opacity: 0.7; }
-  50%  { transform: scale(1.3); opacity: 1; }
-  100% { transform: scale(1); opacity: 0.7; }
+#input-container button:hover {
+  background: #0e6f62;
 }

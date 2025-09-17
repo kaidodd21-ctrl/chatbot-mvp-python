@@ -24,10 +24,9 @@
 
   <script>
   // ------------------------------
-  // Configure this for Render
+  // Configure for Render
   // ------------------------------
-  const API_BASE = "https://chatbot-mvp-python.onrender.com";
-; // <- set me
+  const API_BASE = "https://chatbot-mvp-python.onrender.com"; // your backend
   const BACKEND_URL = API_BASE + "/chat";
 
   let sessionId = null;
@@ -55,7 +54,7 @@
     }
   }
 
-  setInterval(checkBackend, 15000); // every 15s
+  setInterval(checkBackend, 15000);
   window.onload = () => {
     checkBackend();
     restartChat();
@@ -73,7 +72,7 @@
     msgWrapper.innerHTML = `
       <div class="avatar"></div>
       <div class="bubble">${escapeHtml(text)}</div>
-      <div class="status" id="${statusId}">✓ Sent</div>
+      <div class="status sent" id="${statusId}"></div>
     `;
 
     chatBox.appendChild(msgWrapper);
@@ -134,8 +133,10 @@
   // ------------------------------
   async function sendMessage(text) {
     const statusEl = addUserMessage(text);
-    // upgrade status to delivered/seen later
-    setTimeout(() => statusEl.innerText = "✓✓ Delivered", 250);
+
+    // Sent immediately, upgrade after delay
+    statusEl.className = "status sent";
+    setTimeout(() => statusEl.className = "status delivered", 1000);
 
     document.getElementById("user-input").value = "";
     showTyping();
@@ -157,7 +158,8 @@
         if (data.suggestions && data.suggestions.length > 0) {
           setTimeout(() => addSuggestions(data.suggestions), 400);
         }
-        statusEl.innerText = "✓✓ Read";
+
+        statusEl.className = "status read"; // blue ticks
       }, Math.floor(Math.random() * 1000) + 500);
     } catch (error) {
       hideTyping();
@@ -187,10 +189,8 @@
     }[m]));
   }
   function renderMarkdownish(str) {
-    // super-light **bold** renderer used for payment text
     return escapeHtml(str).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\n/g,"<br/>");
   }
   </script>
 </body>
 </html>
-
