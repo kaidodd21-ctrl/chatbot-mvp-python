@@ -143,7 +143,7 @@ header button:hover {
   content: "✓✓";
   margin-left: 4px;
   font-weight: bold;
-  color: #007bff;
+  color: #007bff; /* Blue for "Read" */
 }
 
 /* --------- Typing Indicator --------- */

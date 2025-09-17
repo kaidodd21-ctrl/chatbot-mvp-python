@@ -24,9 +24,9 @@
 
   <script>
   // ------------------------------
-  // Render backend config
+  // Configure for Render
   // ------------------------------
-  const API_BASE = "https://chatbot-mvp-python.onrender.com"; 
+  const API_BASE = "https://chatbot-mvp-python.onrender.com";
   const BACKEND_URL = API_BASE + "/chat";
 
   let sessionId = null;
@@ -54,7 +54,7 @@
     }
   }
 
-  setInterval(checkBackend, 15000); // every 15s
+  setInterval(checkBackend, 15000);
   window.onload = () => {
     checkBackend();
     restartChat();
@@ -72,7 +72,7 @@
     msgWrapper.innerHTML = `
       <div class="avatar"></div>
       <div class="bubble">${escapeHtml(text)}</div>
-      <div class="status" id="${statusId}">✓ Sent</div>
+      <div class="status sent" id="${statusId}">✓ Sent</div>
     `;
 
     chatBox.appendChild(msgWrapper);
@@ -133,7 +133,12 @@
   // ------------------------------
   async function sendMessage(text) {
     const statusEl = addUserMessage(text);
-    setTimeout(() => statusEl.innerText = "✓✓ Delivered", 300);
+
+    // Mark as Delivered after 0.3s
+    setTimeout(() => {
+      statusEl.className = "status delivered";
+      statusEl.innerText = "✓✓ Delivered";
+    }, 300);
 
     document.getElementById("user-input").value = "";
     showTyping();
@@ -148,15 +153,20 @@
       const data = await res.json();
       sessionId = data.session_id;
 
+      // Delay bot reply ~1s
       setTimeout(() => {
         hideTyping();
         addBotMessage(data.reply);
 
         if (data.suggestions && data.suggestions.length > 0) {
-          setTimeout(() => addSuggestions(data.suggestions), 600);
+          setTimeout(() => addSuggestions(data.suggestions), 500);
         }
+
+        // After bot reply → mark as Read
+        statusEl.className = "status read";
         statusEl.innerText = "✓✓ Read";
-      }, 1000); // 1s bot delay
+      }, 1000);
+
     } catch (error) {
       hideTyping();
       addBotMessage("⚠️ Oops, I couldn’t connect to the server. Please try again.");
@@ -173,21 +183,20 @@
     document.getElementById("chat-box").innerHTML = "";
     sessionId = null;
     addBotMessage("Hi 👋 I’m Kai, your assistant. How can I help today?");
-    setTimeout(() => addSuggestions(["Make a booking", "Opening hours", "Contact details"]), 500);
+    setTimeout(() => addSuggestions(["Make a booking", "Opening hours", "Contact details"]), 400);
   }
 
   // ------------------------------
-  // Small helpers
+  // Helpers
   // ------------------------------
   function escapeHtml(str) {
     return str.replace(/[&<>"']/g, (m) => ({
       "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
     }[m]));
   }
+
   function renderMarkdownish(str) {
-    return escapeHtml(str)
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\n/g,"<br/>");
+    return escapeHtml(str).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\n/g,"<br/>");
   }
   </script>
 </body>
