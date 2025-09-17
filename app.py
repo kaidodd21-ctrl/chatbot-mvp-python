@@ -23,6 +23,7 @@ BUSINESS = {
     "hours_text": "Mon–Sat, 9am–6pm",
     "contact_phone": "01234 567890",
     "contact_email": "hello@example.com",
+    # Can be simple strings now; later we’ll support dicts {name, price, duration}
     "services": ["Haircut", "Massage", "Nails"],
 }
 
@@ -70,17 +71,36 @@ def remember(session: Dict, user_msg: str, bot_reply: str):
         session["history"] = session["history"][-10:]
 
 # -----------------------------
-# Helpers: extraction / validation
+# Helpers: services (discovery + formatting)
 # -----------------------------
+def list_services() -> str:
+    """Format available services into a human-friendly list.
+       Future-proof: if items become dicts, show price/duration."""
+    lines = []
+    for s in BUSINESS["services"]:
+        if isinstance(s, dict):
+            name = s.get("name", "")
+            price = f" — £{s['price']}" if "price" in s else ""
+            duration = f" ({s['duration']})" if "duration" in s else ""
+            lines.append(f"• {name}{price}{duration}")
+        else:
+            lines.append(f"• {s}")
+    return "Here are the services we offer:\n" + "\n".join(lines) + "\n\nWhich one would you like to book?"
+
+def service_names() -> List[str]:
+    return [s["name"] if isinstance(s, dict) else s for s in BUSINESS["services"]]
+
 def detect_service(text: str) -> Optional[str]:
     t = text.lower()
-    # match whole service or first token (e.g. "hair" in "Haircut")
     for s in BUSINESS["services"]:
-        s_low = s.lower()
-        if s_low in t or s_low.split()[0] in t:
-            return s
+        name = s["name"].lower() if isinstance(s, dict) else s.lower()
+        if name in t or name.split()[0] in t:
+            return s["name"] if isinstance(s, dict) else s
     return None
 
+# -----------------------------
+# Helpers: date/time, name, contact
+# -----------------------------
 WEEKDAYS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
 
 def parse_datetime_text(text: str) -> Optional[str]:
@@ -228,7 +248,7 @@ def make_payment_link(session_id: str) -> str:
 # -----------------------------
 def ask_for_step(step: str) -> (str, List[str]):
     if step == "service":
-        return (f"Sure 👍 what service would you like to book at {BUSINESS['name']}?", BUSINESS["services"])
+        return (f"Sure 👍 what service would you like to book at {BUSINESS['name']}?", service_names())
     if step == "datetime":
         return ("When would you like your appointment?", ["Tomorrow 3pm", "Friday 11am", "Saturday 2pm"])
     if step == "name":
@@ -243,12 +263,38 @@ def first_missing_slot(slots: Dict[str, Optional[str]]) -> Optional[str]:
             return s
     return None
 
+def is_service_discovery_query(text: str) -> bool:
+    t = text.lower()
+    keywords = [
+        "what are the services",
+        "tell me the services",
+        "services",
+        "menu",
+        "options",
+        "what can i book",
+        "what do you offer",
+        "available services",
+        "price list",
+        "service list",
+    ]
+    return any(k in t for k in keywords)
+
 def handle_booking(session: Dict, message: str) -> ChatResponse:
     sid = session["id"]
     slots = session["slots"]
 
     # Multi-intent: try to fill everything we can from this message first
     fill_slots_from_message(session, message)
+
+    # If service missing, support discovery intent before re-asking
+    if not slots["service"]:
+        if is_service_discovery_query(message):
+            reply = list_services()
+            return ChatResponse(
+                reply=reply,
+                suggestions=service_names(),
+                session_id=sid
+            )
 
     # If something is missing, set current_step there and handle off-script/ask
     step = first_missing_slot(slots)
@@ -419,4 +465,4 @@ def health():
 
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "Kai Virtual Assistant backend (V8.3: robust checkpoints, off-script handling, multi-intent)"}
+    return {"status": "ok", "message": "Kai Virtual Assistant backend (V9.0: service discovery + robust checkpoints)"}
