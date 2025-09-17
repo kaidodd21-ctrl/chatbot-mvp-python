@@ -24,9 +24,9 @@
 
   <script>
   // ------------------------------
-  // Backend URL (Render)
+  // Render backend config
   // ------------------------------
-  const API_BASE = "https://chatbot-mvp-python.onrender.com";
+  const API_BASE = "https://chatbot-mvp-python.onrender.com"; 
   const BACKEND_URL = API_BASE + "/chat";
 
   let sessionId = null;
@@ -133,7 +133,7 @@
   // ------------------------------
   async function sendMessage(text) {
     const statusEl = addUserMessage(text);
-    setTimeout(() => statusEl.innerText = "✓✓ Delivered", 400);
+    setTimeout(() => statusEl.innerText = "✓✓ Delivered", 300);
 
     document.getElementById("user-input").value = "";
     showTyping();
@@ -148,17 +148,15 @@
       const data = await res.json();
       sessionId = data.session_id;
 
-      // delay bot reply by ~1 second
       setTimeout(() => {
         hideTyping();
         addBotMessage(data.reply);
 
         if (data.suggestions && data.suggestions.length > 0) {
-          setTimeout(() => addSuggestions(data.suggestions), 400);
+          setTimeout(() => addSuggestions(data.suggestions), 600);
         }
-        statusEl.innerText = "✓✓ Read"; // turn into blue double ticks
-        statusEl.style.color = "#1DA1F2"; // WhatsApp-style blue
-      }, 1000);
+        statusEl.innerText = "✓✓ Read";
+      }, 1000); // 1s bot delay
     } catch (error) {
       hideTyping();
       addBotMessage("⚠️ Oops, I couldn’t connect to the server. Please try again.");
@@ -175,7 +173,7 @@
     document.getElementById("chat-box").innerHTML = "";
     sessionId = null;
     addBotMessage("Hi 👋 I’m Kai, your assistant. How can I help today?");
-    setTimeout(() => addSuggestions(["Make a booking", "Opening hours", "Contact details"]), 400);
+    setTimeout(() => addSuggestions(["Make a booking", "Opening hours", "Contact details"]), 500);
   }
 
   // ------------------------------
@@ -187,7 +185,9 @@
     }[m]));
   }
   function renderMarkdownish(str) {
-    return escapeHtml(str).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\n/g,"<br/>");
+    return escapeHtml(str)
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\n/g,"<br/>");
   }
   </script>
 </body>
